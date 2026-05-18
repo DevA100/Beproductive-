@@ -64,7 +64,7 @@ export default function Signup() {
           </div>
           <input
             style={styles.input}
-            placeholder="Phone Number (e.g. +2348012345678) — for WhatsApp"
+            placeholder="Phone Number (e.g. +2348012345678)"
             value={form.phone_number}
             onChange={(e) => setForm({ ...form, phone_number: e.target.value })}
           />
