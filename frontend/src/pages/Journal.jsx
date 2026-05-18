@@ -65,7 +65,7 @@ export default function Journal() {
 
       <div style={styles.entriesList}>
         {journals.length === 0 ? (
-          <div style={styles.empty}>No journal entries yet — start writing today! ✍️</div>
+          <div style={styles.empty}>No journal entries yet start writing today! ✍️</div>
         ) : (
           journals.map((j) => (
             <div key={j.id} style={styles.entryCard}>

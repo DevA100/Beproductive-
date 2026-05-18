@@ -91,7 +91,7 @@ export default function Dashboard() {
       <div style={styles.section}>
         <h2 style={styles.sectionTitle}>📅 Current Week Tasks</h2>
         {stats.tasks.length === 0 ? (
-          <div style={styles.empty}>No tasks yet — create your weekly plan! 🚀</div>
+          <div style={styles.empty}>No tasks yet create your weekly plan! 🚀</div>
         ) : (
           <div style={styles.taskList}>
             {stats.tasks.map((task) => (
@@ -112,7 +112,7 @@ export default function Dashboard() {
       <div style={styles.section}>
         <h2 style={styles.sectionTitle}>📝 Recent Journal Entries</h2>
         {stats.journals.length === 0 ? (
-          <div style={styles.empty}>No journal entries yet — start writing! ✍️</div>
+          <div style={styles.empty}>No journal entries yet start writing! ✍️</div>
         ) : (
           <div style={styles.taskList}>
             {stats.journals.slice(0, 5).map((j) => (
