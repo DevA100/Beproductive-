@@ -68,12 +68,12 @@ export default function Sidebar() {
             </Link>
           ))}
         </nav>
-        
+        <a
           href="https://buymeacoffee.com/yourname"
           target="_blank"
           rel="noopener noreferrer"
           style={styles.coffeeBtn}
-        >
+       >
           ☕ Buy me a coffee
         </a>
         <button onClick={handleLogout} style={styles.logout}>🚪 Logout</button>
