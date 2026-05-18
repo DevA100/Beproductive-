@@ -142,12 +142,12 @@ export default function Settings() {
 }
 
 const styles = {
-  container: { padding: "32px", maxWidth: 800 },
+  container: { padding: "20px 16px", maxWidth: 800 },
   title: { fontSize: 28, fontWeight: 800, color: "#1a1a2e", margin: "0 0 24px" },
   card: { background: "white", borderRadius: 16, padding: "24px", boxShadow: "0 4px 20px rgba(0,0,0,0.08)", marginBottom: 20 },
   cardTitle: { fontSize: 18, fontWeight: 700, color: "#1a1a2e", marginTop: 0, marginBottom: 16 },
   hint: { color: "#888", fontSize: 14, marginBottom: 16 },
-  profileRow: { display: "flex", alignItems: "center", gap: 20 },
+  profileRow: { display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" },
   avatarWrapper: { position: "relative", flexShrink: 0 },
   avatar: { width: 72, height: 72, borderRadius: "50%", background: "linear-gradient(135deg, #667eea, #764ba2)", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontWeight: 800, fontSize: 28 },
   avatarImg: { width: 72, height: 72, borderRadius: "50%", objectFit: "cover" },

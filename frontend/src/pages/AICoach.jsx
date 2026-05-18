@@ -123,11 +123,11 @@ export default function AICoach() {
 }
 
 const styles = {
-  container: { padding: "32px", maxWidth: 800 },
+  container: { padding: "20px 16px", maxWidth: 800 },
   title: { fontSize: 28, fontWeight: 800, color: "#1a1a2e", margin: "0 0 8px" },
   subtitle: { color: "#888", marginBottom: 24, fontSize: 14 },
-  tabs: { display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap" },
-  tab: { padding: "10px 18px", border: "2px solid #eee", borderRadius: 10, background: "white", cursor: "pointer", fontSize: 14, fontWeight: 600, color: "#888" },
+  tabs: { display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" },
+  tab: { padding: "8px 12px", border: "2px solid #eee", borderRadius: 10, background: "white", cursor: "pointer", fontSize: 12, fontWeight: 600, color: "#888" },
   activeTab: { background: "linear-gradient(135deg, #667eea, #764ba2)", color: "white", border: "2px solid transparent" },
   card: { background: "white", borderRadius: 16, padding: "28px", boxShadow: "0 4px 20px rgba(0,0,0,0.08)" },
   cardTitle: { fontSize: 20, fontWeight: 700, color: "#1a1a2e", marginTop: 0 },

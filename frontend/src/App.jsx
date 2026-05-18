@@ -13,12 +13,27 @@ import ForgotPassword from "./pages/ForgotPassword";
 
 const ProtectedLayout = ({ children }) => {
   const { user, loading } = useAuth();
-  if (loading) return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", fontSize: 20, color: "#667eea" }}>⚡ Loading BeProductive...</div>;
+  const isMobile = window.innerWidth <= 768;
+
+  if (loading) return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", fontSize: 20, color: "#667eea" }}>
+      ⚡ Loading BeProductive...
+    </div>
+  );
   if (!user) return <Navigate to="/login" />;
+
   return (
     <div style={{ display: "flex", background: "#f0f2ff", minHeight: "100vh" }}>
       <Sidebar />
-      <main style={{ marginLeft: 260, flex: 1, padding: "0" }}>{children}</main>
+      <main style={{
+        marginLeft: isMobile ? 0 : 260,
+        flex: 1,
+        paddingTop: isMobile ? 60 : 0,
+        width: isMobile ? "100%" : "calc(100% - 260px)",
+        overflowX: "hidden"
+      }}>
+        {children}
+      </main>
     </div>
   );
 };

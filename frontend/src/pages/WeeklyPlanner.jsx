@@ -158,7 +158,7 @@ export default function WeeklyPlanner() {
 }
 
 const styles = {
-  container: { padding: "32px", maxWidth: 900 },
+  container: { padding: "20px 16px", maxWidth: 900 },
   loading: { display: "flex", alignItems: "center", justifyContent: "center", height: "50vh", fontSize: 20, color: "#667eea" },
   header: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 },
   title: { fontSize: 28, fontWeight: 800, color: "#1a1a2e", margin: 0 },
@@ -171,7 +171,7 @@ const styles = {
   cardTitle: { fontSize: 18, fontWeight: 700, color: "#1a1a2e", margin: 0 },
   primaryBtn: { background: "linear-gradient(135deg, #667eea, #764ba2)", color: "white", border: "none", borderRadius: 10, padding: "10px 20px", fontWeight: 700, cursor: "pointer", fontSize: 14 },
   secondaryBtn: { background: "#f0f0f0", color: "#666", border: "none", borderRadius: 10, padding: "10px 20px", fontWeight: 600, cursor: "pointer", fontSize: 14 },
-  row: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 },
+   row: { display: "grid", gridTemplateColumns: "1fr", gap: 12 },
   field: { display: "flex", flexDirection: "column", gap: 6 },
   label: { fontSize: 13, fontWeight: 600, color: "#555" },
   input: { padding: "12px 14px", border: "2px solid #eee", borderRadius: 10, fontSize: 14, outline: "none", width: "100%", boxSizing: "border-box" },
@@ -185,5 +185,7 @@ const styles = {
   taskTitle: { fontWeight: 600, fontSize: 15, color: "#333" },
   taskDesc: { color: "#888", fontSize: 13, marginTop: 2 },
   statusSelect: { padding: "8px 12px", border: "2px solid #eee", borderRadius: 8, fontSize: 13, outline: "none", cursor: "pointer" },
-  empty: { textAlign: "center", color: "#aaa", padding: "24px 0" }
+    empty: { textAlign: "center", color: "#aaa", padding: "24px 0" },
+  statsGrid: { display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }
+
 };
