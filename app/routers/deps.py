@@ -39,7 +39,12 @@ class UpdatePhone(BaseModel):
 
 
 @router.patch("/me/phone")
-def update_phone(data: UpdatePhone, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def update_phone(
+    data: UpdatePhone,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     current_user.phone_number = data.phone_number
     db.commit()
-    return {"message": "Phone number updated!", "phone_number": data.phone_number}
+    db.refresh(current_user)
+    return {"message": "Phone updated!", "phone_number": current_user.phone_number}

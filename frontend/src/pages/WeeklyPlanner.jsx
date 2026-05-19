@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { getActivePlan, createPlan, getTasks, createTask, updateTask, updatePlan } from "../services/api";
 import toast from "react-hot-toast";
+import { getActivePlan, createPlan, getTasks, createTask, updateTask, updatePlan, deletePlan } from "../services/api";
 
 export default function WeeklyPlanner() {
   const [plan, setPlan] = useState(null);
@@ -16,44 +17,67 @@ export default function WeeklyPlanner() {
   const [editTaskForm, setEditTaskForm] = useState({});
   const [searchParams] = useSearchParams();
 
-  useEffect(() => {
-    const aiPlan = searchParams.get("ai_plan");
-    if (aiPlan) {
-      setShowNewPlan(true);
-      setPlanForm(prev => ({ ...prev, goal_summary: aiPlan.slice(0, 500) }));
-      toast.success("AI plan loaded! Set your dates and save 📅");
-    }
-    fetchPlan();
-  }, []);
-
-  const fetchPlan = async () => {
+  // Add to useEffect
+useEffect(() => {
+  const aiPlan = searchParams.get("ai_plan");
+  const aiTasks = searchParams.get("ai_tasks");
+  
+  if (aiPlan) {
+    setShowNewPlan(true);
+    setPlanForm(prev => ({ ...prev, goal_summary: aiPlan }));
+    toast.success("AI plan loaded! Set your dates then save 📅");
+  }
+  
+  if (aiTasks) {
     try {
-      const res = await getActivePlan();
-      setPlan(res.data);
-      const tasksRes = await getTasks(res.data.id);
-      setTasks(tasksRes.data);
-    } catch {
-      setPlan(null);
-    } finally {
-      setLoading(false);
-    }
-  };
+      const tasks = JSON.parse(aiTasks);
+      if (tasks.length > 0) {
+        toast.success(`${tasks.length} AI tasks will be added automatically!`);
+        // Store for after plan creation
+        sessionStorage.setItem("pending_ai_tasks", aiTasks);
+      }
+    } catch {}
+  }
+  
+  fetchPlan();
+}, []);
 
-  const handleCreatePlan = async (e) => {
-    e.preventDefault();
-    if (planForm.week_start >= planForm.week_end) return toast.error("Week end must be after week start! 📅");
-    const diff = (new Date(planForm.week_end) - new Date(planForm.week_start)) / (1000 * 60 * 60 * 24);
-    if (diff < 2) return toast.error("Plan must be at least 2 days long!");
-    try {
-      const res = await createPlan(planForm);
-      setPlan(res.data);
-      setShowNewPlan(false);
-      toast.success("Weekly plan created! 🎉");
-    } catch (err) {
-      toast.error(err.response?.data?.detail || "Failed to create plan");
-    }
-  };
+// Update handleCreatePlan to also create AI tasks
+const handleCreatePlan = async (e) => {
+  e.preventDefault();
+  if (planForm.week_start >= planForm.week_end) return toast.error("Week end must be after week start! 📅");
+  const diff = (new Date(planForm.week_end) - new Date(planForm.week_start)) / (1000 * 60 * 60 * 24);
+  if (diff < 2) return toast.error("Plan must be at least 2 days long!");
+  
+  try {
+    const res = await createPlan(planForm);
+    setPlan(res.data);
+    setShowNewPlan(false);
+    toast.success("Weekly plan created! 🎉");
 
+    // Auto-create AI tasks if available
+    const pendingTasks = sessionStorage.getItem("pending_ai_tasks");
+    if (pendingTasks) {
+      const aiTasks = JSON.parse(pendingTasks);
+      const createdTasks = [];
+      for (const task of aiTasks) {
+        try {
+          const taskRes = await createTask(res.data.id, {
+            title: task.title,
+            description: task.description,
+            priority: "medium"
+          });
+          createdTasks.push(taskRes.data);
+        } catch {}
+      }
+      setTasks(createdTasks);
+      sessionStorage.removeItem("pending_ai_tasks");
+      toast.success(`${createdTasks.length} AI tasks added automatically! 🤖`);
+    }
+  } catch (err) {
+    toast.error(err.response?.data?.detail || "Failed to create plan");
+  }
+};
   const handleCreateTask = async (e) => {
     e.preventDefault();
     try {
@@ -99,6 +123,18 @@ export default function WeeklyPlanner() {
     }
   };
 
+  const handleDeletePlan = async () => {
+  if (!window.confirm("Delete this weekly plan and all its tasks?")) return;
+  try {
+    await deletePlan(plan.id);
+    setPlan(null);
+    setTasks([]);
+    toast.success("Plan deleted!");
+  } catch {
+    toast.error("Failed to delete plan");
+  }
+};
+
   if (loading) return <div style={styles.loading}>Loading planner... 📅</div>;
 
   return (
@@ -141,6 +177,9 @@ export default function WeeklyPlanner() {
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
               <span style={styles.activeBadge}>🟢 Active</span>
               <button onClick={() => { setEditingPlan(true); setPlanForm({ ...planForm, goal_summary: plan.goal_summary || "" }); }} style={styles.editPlanBtn}>✏️ Edit</button>
+              <button onClick={handleDeletePlan} style={{ background: "rgba(255,100,100,0.1)", color: "#ff6b6b", border: "1px solid rgba(255,100,100,0.2)", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
+  🗑️ Delete Plan
+</button>
             </div>
           </div>
 

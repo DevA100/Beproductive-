@@ -1,3 +1,4 @@
+from typing import Optional
 from app.schemas.weekly_plan import WeeklyPlanUpdate
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -7,7 +8,7 @@ from app.schemas.weekly_plan import WeeklyPlanCreate, WeeklyPlanResponse
 from app.routers.deps import get_current_user
 from app.models.user import User
 from typing import List
-
+from pydantic import BaseModel
 router = APIRouter(prefix="/plans", tags=["Weekly Plans"])
 
 
@@ -77,10 +78,16 @@ def archive_plan(plan_id: int, db: Session = Depends(get_db), current_user: User
     return plan
 
 
+class WeeklyPlanUpdateRequest(BaseModel):
+    goal_summary: Optional[str] = None
+
+
 @router.patch("/{plan_id}", response_model=WeeklyPlanResponse)
-def update_plan(plan_id: int, updates: WeeklyPlanUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    plan = db.query(WeeklyPlan).filter(WeeklyPlan.id == plan_id,
-                                       WeeklyPlan.user_id == current_user.id).first()
+def update_plan(plan_id: int, updates: WeeklyPlanUpdateRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    plan = db.query(WeeklyPlan).filter(
+        WeeklyPlan.id == plan_id,
+        WeeklyPlan.user_id == current_user.id
+    ).first()
     if not plan:
         raise HTTPException(status_code=404, detail="Plan not found")
     for key, value in updates.model_dump(exclude_unset=True).items():
@@ -88,3 +95,14 @@ def update_plan(plan_id: int, updates: WeeklyPlanUpdate, db: Session = Depends(g
     db.commit()
     db.refresh(plan)
     return plan
+
+
+@router.delete("/{plan_id}")
+def delete_plan(plan_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    plan = db.query(WeeklyPlan).filter(WeeklyPlan.id == plan_id,
+                                       WeeklyPlan.user_id == current_user.id).first()
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan not found")
+    db.delete(plan)
+    db.commit()
+    return {"message": "Plan deleted"}

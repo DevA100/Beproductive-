@@ -41,9 +41,16 @@ async def signup(user: UserCreate, db: Session = Depends(get_db)):
         phone_number=user.phone_number
     )
     db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
 
+    try:
+        db.commit()
+        db.refresh(new_user)
+    except Exception:
+        db.rollback()
+        raise HTTPException(
+            status_code=500, detail="Account creation failed. Please try again")
+
+    # Send welcome email — don't fail signup if email fails
     try:
         from app.services.email_service import send_welcome_email
         await send_welcome_email(to_email=new_user.email, username=new_user.username)

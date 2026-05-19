@@ -1,3 +1,4 @@
+import re
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
@@ -37,16 +38,36 @@ def ai_generate_weekly_plan(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """AI generates a weekly plan based on your goals"""
     try:
         plan = generate_weekly_plan(
-            username=current_user.username,
-            goals=input.goals
-        )
+            username=current_user.username, goals=input.goals)
+
+        # Extract tasks from the AI response
+        tasks = []
+        task_section = re.search(
+            r'TOP 5 TASKS.*?(?=📅|DAILY|$)', plan, re.DOTALL)
+        if task_section:
+            task_lines = task_section.group().split('\n')
+            for line in task_lines:
+                match = re.match(r'\d+\.\s+(.+?)\s*-\s*(.+)', line.strip())
+                if match:
+                    tasks.append({
+                        "title": match.group(1).strip(),
+                        "description": match.group(2).strip()
+                    })
+
+        # Extract goal summary
+        goal_match = re.search(
+            r'WEEKLY GOAL[:\s]+(.+?)(?=📋|$)', plan, re.DOTALL)
+        goal_summary = goal_match.group(1).strip(
+        )[:300] if goal_match else input.goals[:300]
+
         return {
             "message": "Weekly plan generated successfully",
             "ai_plan": plan,
-            "tip": "Use POST /plans/ to save this plan to your account"
+            "goal_summary": goal_summary,
+            "suggested_tasks": tasks,
+            "tip": "Click 'Use This Plan' to auto-create your plan with tasks!"
         }
     except Exception as e:
         raise HTTPException(

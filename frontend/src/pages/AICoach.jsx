@@ -13,18 +13,22 @@ export default function AICoach() {
   const [actionForm, setActionForm] = useState({ todays_journal: "" });
   const navigate = useNavigate();
 
-  const handleGeneratePlan = async () => {
-    if (!goals.trim()) return toast.error("Please enter your goals");
-    setLoading(true);
-    try {
-      const res = await generateWeeklyPlan({ goals });
-      setResult(res.data.ai_plan);
-      setGeneratedPlan(res.data.ai_plan);
-      toast.success("Plan generated! 🤖");
-    } catch { toast.error("AI service failed"); }
-    finally { setLoading(false); }
-  };
+  const [suggestedTasks, setSuggestedTasks] = useState([]);
+const [goalSummary, setGoalSummary] = useState("");
 
+const handleGeneratePlan = async () => {
+  if (!goals.trim()) return toast.error("Please enter your goals");
+  setLoading(true);
+  try {
+    const res = await generateWeeklyPlan({ goals });
+    setResult(res.data.ai_plan);
+    setGeneratedPlan(res.data.ai_plan);
+    setSuggestedTasks(res.data.suggested_tasks || []);
+    setGoalSummary(res.data.goal_summary || goals);
+    toast.success("Plan generated! 🤖");
+  } catch { toast.error("AI service failed"); }
+  finally { setLoading(false); }
+};
   const handleCheckin = async () => {
     setLoading(true);
     try {
@@ -144,11 +148,20 @@ export default function AICoach() {
           </div>
         )}
 
-        {generatedPlan && (
-          <button onClick={() => navigate("/planner?ai_plan=" + encodeURIComponent(generatedPlan))} style={{ ...styles.aiBtn, marginTop: 12, background: "linear-gradient(135deg, #43e97b, #38f9d7)" }}>
-            📅 Use This Plan in Weekly Planner
-          </button>
-        )}
+       {generatedPlan && (
+  <button
+    onClick={() => {
+      const params = new URLSearchParams({
+        ai_plan: goalSummary,
+        ai_tasks: JSON.stringify(suggestedTasks)
+      });
+      navigate("/planner?" + params.toString());
+    }}
+    style={{ ...styles.aiBtn, marginTop: 12, background: "linear-gradient(135deg, #43e97b, #38f9d7)", color: "#0d1117" }}
+  >
+    📅 Use This Plan in Weekly Planner ({suggestedTasks.length} tasks ready)
+  </button>
+)}
       </div>
     </div>
   );

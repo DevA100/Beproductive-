@@ -19,23 +19,42 @@ def get_ai_response(system_prompt: str, user_message: str) -> str:
 
 def generate_weekly_plan(username: str, goals: str) -> str:
     system_prompt = """You are BeProductive AI, an expert productivity coach.
-    Generate structured weekly plans and always suggest 3 relevant articles with real URLs.
-    Format article suggestions as:
+    Generate a structured weekly plan. Be encouraging and specific.
+    Always end with 3 recommended articles with real URLs in this format:
     📚 RECOMMENDED READING:
-    1. [Article Title](https://real-url.com) - Brief description
-    2. [Article Title](https://real-url.com) - Brief description  
-    3. [Article Title](https://real-url.com) - Brief description"""
+    1. [Title](URL) - Description
+    Format your response clearly with sections."""
 
     user_message = f"""
     User: {username}
-    Goals: {goals}
+    Goals this week: {goals}
 
-    Generate:
-    1. Motivational opening
-    2. 3-5 specific weekly tasks
-    3. Daily action suggestions (Mon-Fri)
-    4. One key focus tip
-    5. 3 relevant articles with real links related to their goals
+    Create a weekly plan with these EXACT sections:
+
+    🎯 WEEKLY GOAL:
+    [One sentence summary of the week's focus]
+
+    📋 TOP 5 TASKS FOR THE WEEK:
+    1. [Task name] - [Brief description]
+    2. [Task name] - [Brief description]
+    3. [Task name] - [Brief description]
+    4. [Task name] - [Brief description]
+    5. [Task name] - [Brief description]
+
+    📅 DAILY BREAKDOWN:
+    Monday: [Main task]
+    Tuesday: [Main task]
+    Wednesday: [Main task]
+    Thursday: [Main task]
+    Friday: [Main task]
+
+    💡 FOCUS TIP:
+    [One actionable tip]
+
+    📚 RECOMMENDED READING:
+    1. [Article title](https://url.com) - Why it helps
+    2. [Article title](https://url.com) - Why it helps
+    3. [Article title](https://url.com) - Why it helps
     """
     return get_ai_response(system_prompt, user_message)
 

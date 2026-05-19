@@ -1,3 +1,4 @@
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
@@ -67,8 +68,14 @@ def get_entry_by_date(entry_date: date, db: Session = Depends(get_db), current_u
     return entry
 
 
+class JournalUpdateRequest(BaseModel):
+    journal_text: Optional[str] = None
+    wins: Optional[str] = None
+    challenges: Optional[str] = None
+
+
 @router.patch("/{entry_date}", response_model=JournalResponse)
-def update_entry(entry_date: date, updates: JournalCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def update_entry(entry_date: date, updates: JournalUpdateRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     entry = db.query(Journal).filter(
         Journal.user_id == current_user.id,
         Journal.entry_date == entry_date
@@ -81,3 +88,14 @@ def update_entry(entry_date: date, updates: JournalCreate, db: Session = Depends
     db.commit()
     db.refresh(entry)
     return entry
+
+
+@router.delete("/{entry_date}")
+def delete_entry(entry_date: date, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    entry = db.query(Journal).filter(Journal.user_id ==
+                                     current_user.id, Journal.entry_date == entry_date).first()
+    if not entry:
+        raise HTTPException(status_code=404, detail="Entry not found")
+    db.delete(entry)
+    db.commit()
+    return {"message": "Journal entry deleted"}

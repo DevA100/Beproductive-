@@ -23,6 +23,8 @@ export const getActivePlan = () => API.get("/plans/active");
 export const archivePlan = (id) => API.patch(`/plans/${id}/archive`);
 export const updatePlan = (id, data) => API.patch(`/plans/${id}`, data);
 
+export const deletePlan = (id) => API.delete(`/plans/${id}`);
+export const deleteJournal = (date) => API.delete(`/journal/${date}`);
 // Tasks
 export const createTask = (planId, data) => API.post(`/tasks/${planId}`, data);
 export const getTasks = (planId) => API.get(`/tasks/${planId}`);

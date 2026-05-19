@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { getJournals, createJournal, updateJournal } from "../services/api";
 import toast from "react-hot-toast";
-
+import { getJournals, createJournal, updateJournal, deleteJournal } from "../services/api";
 export default function Journal() {
   const [journals, setJournals] = useState([]);
   const [showForm, setShowForm] = useState(false);
@@ -60,6 +60,18 @@ export default function Journal() {
     }
   };
 
+  const handleDelete = async (entryDate) => {
+  if (!window.confirm("Delete this journal entry?")) return;
+  try {
+    await deleteJournal(entryDate);
+    setJournals(journals.filter(j => j.entry_date !== entryDate));
+    toast.success("Entry deleted!");
+  } catch {
+    toast.error("Failed to delete");
+  }
+};
+
+
   return (
     <div style={styles.container}>
       <div style={styles.header}>
@@ -109,6 +121,7 @@ export default function Journal() {
                   <button onClick={() => editingId === j.id ? setEditingId(null) : handleEdit(j)} style={styles.editBtn}>
                     {editingId === j.id ? "✕ Close" : "✏️ Edit"}
                   </button>
+                  <button onClick={() => handleDelete(j.entry_date)} style={styles.deleteBtn}>🗑️</button>
                 </div>
               </div>
 
@@ -166,4 +179,5 @@ const styles = {
   challengeTag: { background: "rgba(167,139,250,0.1)", color: "#a78bfa", padding: "4px 12px", borderRadius: 20, fontSize: 13, fontWeight: 600, border: "1px solid rgba(167,139,250,0.2)" },
   editBtn: { background: "rgba(0,210,255,0.1)", color: "#00d2ff", border: "1px solid rgba(0,210,255,0.2)", borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 12, fontWeight: 600 },
   editForm: { marginTop: 12 },
+  deleteBtn: { background: "rgba(255,100,100,0.1)", color: "#ff6b6b", border: "1px solid rgba(255,100,100,0.2)", borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 12, fontWeight: 600 },
 };
