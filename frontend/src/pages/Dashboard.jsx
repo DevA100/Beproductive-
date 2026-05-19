@@ -1,4 +1,3 @@
-// Dashboard.jsx - Simplified version without streaks
 import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { getActivePlan, getTasks, getJournals, exportExcel } from "../services/api";
@@ -41,7 +40,7 @@ export default function Dashboard() {
       document.body.appendChild(link);
       link.click();
       link.remove();
-      toast.success("Excel exported");
+      toast.success("Excel exported! 📊");
     } catch {
       toast.error("Export failed");
     }
@@ -52,72 +51,58 @@ export default function Dashboard() {
     ? (stats.journals.reduce((sum, j) => sum + (j.productivity_score || 0), 0) / stats.journals.length).toFixed(1)
     : 0;
 
-  if (loading) {
-    return (
-      <div style={styles.loadingContainer}>
-        <div className="loading-spinner"></div>
-      </div>
-    );
-  }
+  const statCards = [
+    { label: "Active Plan", value: stats.plan ? "✅ Active" : "❌ None", color: "#667eea" },
+    { label: "Total Tasks", value: stats.tasks.length, color: "#f093fb" },
+    { label: "Completed", value: completedTasks, color: "#4facfe" },
+    { label: "Avg Score", value: `${avgScore}/10`, color: "#43e97b" },
+  ];
+
+  if (loading) return <div style={styles.loading}>Loading your dashboard... ⚡</div>;
 
   return (
     <div style={styles.container}>
       <div style={styles.header}>
-        <div style={styles.userSection}>
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           {avatar ? (
-            <img src={avatar} style={styles.avatar} alt="avatar" />
+            <img src={avatar} style={{ width: 52, height: 52, borderRadius: "50%", objectFit: "cover", border: "3px solid #667eea" }} alt="avatar" />
           ) : (
-            <div style={styles.avatarPlaceholder}>
+            <div style={{ width: 52, height: 52, borderRadius: "50%", background: "linear-gradient(135deg, #667eea, #764ba2)", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontWeight: 800, fontSize: 22 }}>
               {user?.username?.[0]?.toUpperCase()}
             </div>
           )}
           <div>
-            <h1 style={styles.greeting}>Welcome back, {user?.username}</h1>
+            <h1 style={styles.greeting}>Good day, {user?.username}! 👋</h1>
             <p style={styles.subtitle}>Here's your productivity overview</p>
           </div>
         </div>
-        <button onClick={handleExport} style={styles.exportBtn}>
-          Export Report
-        </button>
+        <button onClick={handleExport} style={styles.exportBtn}>📊 Export Excel</button>
       </div>
 
       <div style={styles.statsGrid}>
-        <div style={styles.statCard}>
-          <div style={styles.statLabel}>Active Plan</div>
-          <div style={styles.statValue}>{stats.plan ? "Active" : "None"}</div>
-        </div>
-        <div style={styles.statCard}>
-          <div style={styles.statLabel}>Total Tasks</div>
-          <div style={styles.statValue}>{stats.tasks.length}</div>
-        </div>
-        <div style={styles.statCard}>
-          <div style={styles.statLabel}>Completed</div>
-          <div style={styles.statValue}>{completedTasks}</div>
-        </div>
-        <div style={styles.statCard}>
-          <div style={styles.statLabel}>Avg Productivity</div>
-          <div style={styles.statValue}>{avgScore}/10</div>
-        </div>
+        {statCards.map((card) => (
+          <div key={card.label} style={{ ...styles.statCard, borderTop: `4px solid ${card.color}` }}>
+            <div style={{ ...styles.statValue, color: card.color }}>{card.value}</div>
+            <div style={styles.statLabel}>{card.label}</div>
+          </div>
+        ))}
       </div>
 
       <div style={styles.section}>
-        <h2 style={styles.sectionTitle}>Current Tasks</h2>
+        <h2 style={styles.sectionTitle}>📅 Current Week Tasks</h2>
         {stats.tasks.length === 0 ? (
-          <div style={styles.empty}>No tasks yet. Create a weekly plan to get started</div>
+          <div style={styles.empty}>No tasks yet create your weekly plan! 🚀</div>
         ) : (
           <div style={styles.taskList}>
-            {stats.tasks.slice(0, 5).map((task) => (
+            {stats.tasks.map((task) => (
               <div key={task.id} style={styles.taskItem}>
-                <div style={{
-                  ...styles.taskStatus,
-                  background: task.status === "completed" ? "#00cc66" :
-                             task.status === "in_progress" ? "#0066cc" : "#999999"
-                }}></div>
-                <div style={styles.taskContent}>
-                  <div style={styles.taskTitle}>{task.title}</div>
-                  {task.description && <div style={styles.taskDesc}>{task.description}</div>}
-                </div>
-                <div style={styles.taskPriority}>{task.priority}</div>
+                <span style={{ ...styles.badge, background: task.status === "completed" ? "#43e97b20" : task.status === "in_progress" ? "#f09320" : "#66666620", color: task.status === "completed" ? "#43e97b" : task.status === "in_progress" ? "#f09320" : "#666" }}>
+                  {task.status}
+                </span>
+                <span style={styles.taskTitle}>{task.title}</span>
+                <span style={{ ...styles.priority, color: task.priority === "high" ? "#f5576c" : task.priority === "medium" ? "#f093fb" : "#667eea" }}>
+                  {task.priority}
+                </span>
               </div>
             ))}
           </div>
@@ -125,20 +110,16 @@ export default function Dashboard() {
       </div>
 
       <div style={styles.section}>
-        <h2 style={styles.sectionTitle}>Recent Journal Entries</h2>
+        <h2 style={styles.sectionTitle}>📝 Recent Journal Entries</h2>
         {stats.journals.length === 0 ? (
-          <div style={styles.empty}>No journal entries yet</div>
+          <div style={styles.empty}>No journal entries yet start writing! ✍️</div>
         ) : (
-          <div style={styles.journalList}>
-            {stats.journals.slice(0, 3).map((j) => (
+          <div style={styles.taskList}>
+            {stats.journals.slice(0, 5).map((j) => (
               <div key={j.id} style={styles.journalItem}>
-                <div style={styles.journalHeader}>
-                  <span style={styles.journalDate}>{j.entry_date}</span>
-                  <span style={styles.journalScore}>Score: {j.productivity_score || 0}/10</span>
-                </div>
-                <div style={styles.journalText}>
-                  {j.journal_text?.slice(0, 100)}...
-                </div>
+                <span style={styles.journalDate}>{j.entry_date}</span>
+                <span style={styles.journalText}>{j.journal_text?.slice(0, 80) || "No text"}...</span>
+                <span style={styles.score}>⭐ {j.productivity_score || 0}/10</span>
               </div>
             ))}
           </div>
@@ -149,182 +130,26 @@ export default function Dashboard() {
 }
 
 const styles = {
-  container: {
-    minHeight: "100vh",
-    background: "#f5f5f5",
-    padding: "20px 24px",
-    marginLeft: "260px",
-  },
-  loadingContainer: {
-    minHeight: "100vh",
-    background: "#f5f5f5",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    marginLeft: "260px",
-  },
-  header: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 24,
-    flexWrap: "wrap",
-    gap: 16,
-  },
-  userSection: {
-    display: "flex",
-    alignItems: "center",
-    gap: 16,
-  },
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: "50%",
-    objectFit: "cover",
-    border: "2px solid #0066cc",
-  },
-  avatarPlaceholder: {
-    width: 48,
-    height: 48,
-    borderRadius: "50%",
-    background: "#0066cc",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    color: "#ffffff",
-    fontWeight: 600,
-    fontSize: 20,
-  },
-  greeting: {
-    fontSize: 20,
-    fontWeight: 600,
-    color: "#000000",
-    margin: 0,
-  },
-  subtitle: {
-    color: "#666666",
-    fontSize: 14,
-    marginTop: 4,
-  },
-  exportBtn: {
-    background: "#0066cc",
-    color: "#ffffff",
-    border: "none",
-    borderRadius: 8,
-    padding: "8px 16px",
-    fontWeight: 500,
-    cursor: "pointer",
-    fontSize: 13,
-  },
-  statsGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-    gap: 16,
-    marginBottom: 24,
-  },
-  statCard: {
-    background: "#ffffff",
-    border: "1px solid #e0e0e0",
-    borderRadius: 12,
-    padding: "20px",
-  },
-  statLabel: {
-    fontSize: 13,
-    color: "#666666",
-    marginBottom: 8,
-  },
-  statValue: {
-    fontSize: 28,
-    fontWeight: 600,
-    color: "#000000",
-  },
-  section: {
-    background: "#ffffff",
-    border: "1px solid #e0e0e0",
-    borderRadius: 12,
-    padding: "20px",
-    marginBottom: 20,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: 600,
-    color: "#000000",
-    margin: "0 0 16px 0",
-  },
-  taskList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 12,
-  },
-  taskItem: {
-    display: "flex",
-    alignItems: "center",
-    gap: 12,
-    padding: "12px",
-    background: "#f9f9f9",
-    borderRadius: 8,
-    border: "1px solid #e0e0e0",
-  },
-  taskStatus: {
-    width: 8,
-    height: 8,
-    borderRadius: "50%",
-  },
-  taskContent: {
-    flex: 1,
-  },
-  taskTitle: {
-    fontWeight: 500,
-    color: "#000000",
-    fontSize: 14,
-  },
-  taskDesc: {
-    fontSize: 12,
-    color: "#666666",
-    marginTop: 2,
-  },
-  taskPriority: {
-    fontSize: 11,
-    fontWeight: 500,
-    padding: "4px 8px",
-    borderRadius: 4,
-    background: "#f0f0f0",
-    color: "#000000",
-  },
-  journalList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 12,
-  },
-  journalItem: {
-    padding: "12px",
-    background: "#f9f9f9",
-    borderRadius: 8,
-    border: "1px solid #e0e0e0",
-  },
-  journalHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    marginBottom: 8,
-  },
-  journalDate: {
-    fontSize: 12,
-    fontWeight: 500,
-    color: "#0066cc",
-  },
-  journalScore: {
-    fontSize: 12,
-    color: "#666666",
-  },
-  journalText: {
-    fontSize: 13,
-    color: "#666666",
-    lineHeight: 1.5,
-  },
-  empty: {
-    textAlign: "center",
-    padding: "40px 20px",
-    color: "#666666",
-    fontSize: 14,
-  },
+  container: { padding: "20px 16px", maxWidth: 1000 },
+  loading: { display: "flex", alignItems: "center", justifyContent: "center", height: "50vh", fontSize: 20, color: "#00d2ff" },
+  header: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, flexWrap: "wrap", gap: 12 },
+  greeting: { fontSize: 22, fontWeight: 800, color: "#e2e8f0", margin: 0 },
+  subtitle: { color: "#64748b", margin: "4px 0 0", fontSize: 13 },
+  exportBtn: { background: "linear-gradient(135deg, #43e97b, #38f9d7)", color: "#0d1117", border: "none", borderRadius: 12, padding: "10px 16px", fontWeight: 700, cursor: "pointer", fontSize: 13 },
+  statsGrid: { display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12, marginBottom: 24 },
+  statCard: { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(0,210,255,0.1)", borderRadius: 16, padding: "16px", backdropFilter: "blur(10px)" },
+  statValue: { fontSize: 22, fontWeight: 800, marginBottom: 4 },
+  statLabel: { color: "#64748b", fontSize: 12 },
+  section: { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(0,210,255,0.1)", borderRadius: 16, padding: "16px", marginBottom: 16 },
+  sectionTitle: { fontSize: 16, fontWeight: 700, color: "#e2e8f0", marginTop: 0, marginBottom: 12 },
+  empty: { color: "#64748b", textAlign: "center", padding: "20px 0", fontSize: 14 },
+  taskList: { display: "flex", flexDirection: "column", gap: 8 },
+  taskItem: { display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", background: "rgba(0,210,255,0.03)", border: "1px solid rgba(0,210,255,0.08)", borderRadius: 10, flexWrap: "wrap" },
+  badge: { padding: "3px 8px", borderRadius: 20, fontSize: 11, fontWeight: 600 },
+  taskTitle: { flex: 1, fontWeight: 500, color: "#e2e8f0", fontSize: 14, minWidth: 100 },
+  priority: { fontSize: 11, fontWeight: 700, textTransform: "uppercase" },
+  journalItem: { display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", background: "rgba(0,210,255,0.03)", border: "1px solid rgba(0,210,255,0.08)", borderRadius: 10, flexWrap: "wrap" },
+  journalDate: { color: "#00d2ff", fontWeight: 600, fontSize: 12, minWidth: 80 },
+  journalText: { flex: 1, color: "#94a3b8", fontSize: 12, minWidth: 100 },
+  score: { color: "#a78bfa", fontWeight: 700, fontSize: 12 },
 };

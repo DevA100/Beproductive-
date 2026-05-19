@@ -1,4 +1,3 @@
-// Login.jsx
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { login } from "../services/api";
@@ -18,7 +17,7 @@ export default function Login() {
     try {
       const res = await login(form);
       loginUser(res.data.access_token);
-      toast.success("Welcome back");
+      toast.success("Welcome back! 🎉");
       navigate("/dashboard");
     } catch (err) {
       toast.error(err.response?.data?.detail || "Login failed");
@@ -30,10 +29,9 @@ export default function Login() {
   return (
     <div style={styles.container}>
       <div style={styles.card}>
-        <div style={styles.logo}>BeProductive</div>
-        <h2 style={styles.title}>Welcome Back</h2>
-        <p style={styles.subtitle}>Sign in to continue</p>
-        
+        <div style={styles.logo}>⚡ BeProductive</div>
+        <h2 style={styles.title}>Welcome Back!</h2>
+        <p style={styles.subtitle}>Sign in to continue your productive journey</p>
         <form onSubmit={handleSubmit}>
           <input
             style={styles.input}
@@ -42,7 +40,6 @@ export default function Login() {
             onChange={(e) => setForm({ ...form, email_or_username: e.target.value })}
             required
           />
-          
           <div style={styles.passwordWrapper}>
             <input
               style={styles.passwordInput}
@@ -57,26 +54,25 @@ export default function Login() {
               onClick={() => setShowPassword(!showPassword)}
               style={styles.eyeBtn}
             >
-              {showPassword ? "Hide" : "Show"}
+              {showPassword ? "🙈" : "👁️"}
             </button>
           </div>
-          
           <div style={styles.forgotRow}>
             <Link to="/forgot-password" style={styles.forgotLink}>
               Forgot password?
             </Link>
           </div>
-          
-          <button style={styles.button} type="submit" disabled={loading}>
-            {loading ? "Signing in..." : "Sign In"}
-          </button>
+         <button style={{...styles.button, opacity: loading ? 0.7 : 1, cursor: loading ? "not-allowed" : "pointer"}} type="submit" disabled={loading}>
+  {loading ? (
+    <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+      <span style={styles.spinner}></span> Signing in...
+    </span>
+  ) : "Sign In 🚀"}
+</button>
         </form>
-        
         <p style={styles.link}>
           Don't have an account?{" "}
-          <Link to="/signup" style={styles.linkText}>
-            Create Account
-          </Link>
+          <Link to="/signup" style={styles.linkText}>Sign Up</Link>
         </p>
       </div>
     </div>
@@ -84,111 +80,35 @@ export default function Login() {
 }
 
 const styles = {
-  container: {
-    minHeight: "100vh",
-    background: "#f5f5f5",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  card: {
-    background: "#ffffff",
-    border: "1px solid #e0e0e0",
-    borderRadius: 12,
-    padding: "40px",
-    width: "100%",
-    maxWidth: 400,
-    boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
-  },
-  logo: {
-    fontSize: 24,
-    fontWeight: 700,
-    color: "#0066cc",
-    marginBottom: 24,
-    textAlign: "center",
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: 600,
-    color: "#000000",
-    margin: "0 0 8px 0",
-    textAlign: "center",
-  },
-  subtitle: {
-    color: "#666666",
-    marginBottom: 24,
-    fontSize: 14,
-    textAlign: "center",
-  },
-  input: {
-    width: "100%",
-    padding: "12px 14px",
-    marginBottom: 16,
-    border: "1px solid #e0e0e0",
-    borderRadius: 8,
-    fontSize: 14,
-    outline: "none",
-    boxSizing: "border-box",
-    background: "#ffffff",
-    color: "#000000",
-  },
-  passwordWrapper: {
-    position: "relative",
-    marginBottom: 16,
-  },
-  passwordInput: {
-    width: "100%",
-    padding: "12px 48px 12px 14px",
-    border: "1px solid #e0e0e0",
-    borderRadius: 8,
-    fontSize: 14,
-    outline: "none",
-    boxSizing: "border-box",
-    background: "#ffffff",
-    color: "#000000",
-  },
-  eyeBtn: {
-    position: "absolute",
-    right: 14,
-    top: "50%",
-    transform: "translateY(-50%)",
-    background: "none",
-    border: "none",
-    cursor: "pointer",
-    fontSize: 13,
-    padding: 0,
-    color: "#666666",
-  },
-  forgotRow: {
-    display: "flex",
-    justifyContent: "flex-end",
-    marginBottom: 24,
-  },
-  forgotLink: {
-    color: "#0066cc",
-    fontSize: 13,
-    textDecoration: "none",
-  },
-  button: {
-    width: "100%",
-    padding: "12px",
-    background: "#0066cc",
-    color: "#ffffff",
-    border: "none",
-    borderRadius: 8,
-    fontSize: 14,
-    fontWeight: 600,
-    cursor: "pointer",
-  },
-  link: {
-    textAlign: "center",
-    marginTop: 24,
-    color: "#666666",
-    fontSize: 14,
-  },
-  linkText: {
-    color: "#0066cc",
-    fontWeight: 600,
-    textDecoration: "none",
-  },
+  container: { 
+  minHeight: "100vh", 
+  background: "linear-gradient(135deg, #0a0a0a 0%, #0d1117 50%, #0a0f1e 100%)", 
+  display: "flex", alignItems: "center", justifyContent: "center",
+  position: "relative",
+  overflow: "hidden"
+},
+card: { 
+  background: "rgba(13,17,23,0.95)", 
+  border: "1px solid rgba(99,179,237,0.2)",
+  borderRadius: 20, padding: "40px", width: "100%", maxWidth: 420, 
+  boxShadow: "0 0 40px rgba(99,179,237,0.1), 0 20px 60px rgba(0,0,0,0.5)",
+  backdropFilter: "blur(20px)"
+},
+logo: { fontSize: 28, fontWeight: 800, background: "linear-gradient(135deg, #00d2ff, #7b2ff7)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", marginBottom: 8 },
+title: { fontSize: 24, fontWeight: 700, color: "#e2e8f0", margin: "0 0 8px" },
+subtitle: { color: "#64748b", marginBottom: 24, fontSize: 14 },
+input: { width: "100%", padding: "14px 16px", marginBottom: 16, border: "1px solid rgba(99,179,237,0.2)", borderRadius: 12, fontSize: 15, outline: "none", boxSizing: "border-box", background: "rgba(255,255,255,0.05)", color: "#e2e8f0", transition: "border 0.2s" },
+button: { width: "100%", padding: "14px", background: "linear-gradient(135deg, #00d2ff 0%, #7b2ff7 100%)", color: "white", border: "none", borderRadius: 12, fontSize: 16, fontWeight: 700, cursor: "pointer" },
+link: { textAlign: "center", marginTop: 20, color: "#64748b", fontSize: 14 },
+linkText: { color: "#00d2ff", fontWeight: 600, textDecoration: "none" },
+passwordWrapper: { position: "relative", marginBottom: 8 },
+passwordInput: { width: "100%", padding: "14px 48px 14px 16px", border: "1px solid rgba(99,179,237,0.2)", borderRadius: 12, fontSize: 15, outline: "none", boxSizing: "border-box", background: "rgba(255,255,255,0.05)", color: "#e2e8f0" },
+eyeBtn: { position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", fontSize: 18, padding: 0 },
+forgotRow: { display: "flex", justifyContent: "flex-end", marginBottom: 16 },
+forgotLink: { color: "#00d2ff", fontSize: 13, fontWeight: 600, textDecoration: "none" },
+divider: { display: "flex", alignItems: "center", margin: "20px 0", gap: 10 },
+dividerText: { color: "#64748b", fontSize: 13, whiteSpace: "nowrap", padding: "0 10px" },
+socialRow: { display: "flex", gap: 12, marginBottom: 8 },
+socialBtn: { flex: 1, padding: "12px", border: "1px solid rgba(99,179,237,0.2)", borderRadius: 12, background: "rgba(255,255,255,0.05)", cursor: "pointer", fontSize: 14, fontWeight: 600, color: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 },
+spinner: { width: 18, height: 18, border: "3px solid rgba(255,255,255,0.3)", borderTop: "3px solid white", borderRadius: "50%", animation: "spin 0.8s linear infinite", display: "inline-block" },
 };
