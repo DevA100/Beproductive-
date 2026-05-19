@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { getActivePlan, createPlan, getTasks, createTask, updateTask, updatePlan } from "../services/api";
 import toast from "react-hot-toast";
 import { getActivePlan, createPlan, getTasks, createTask, updateTask, updatePlan, deletePlan } from "../services/api";
 
