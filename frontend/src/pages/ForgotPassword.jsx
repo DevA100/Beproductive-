@@ -1,15 +1,19 @@
+// ForgotPassword.jsx
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { forgotPassword, resetPassword } from "../services/api";
 import toast from "react-hot-toast";
 
 export default function ForgotPassword() {
-  const [step, setStep] = useState(1); // 1=email, 2=otp+newpassword
+  const [step, setStep] = useState(1);
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem("theme") || "light";
+  });
   const navigate = useNavigate();
 
   const handleSendOTP = async (e) => {
@@ -18,7 +22,7 @@ export default function ForgotPassword() {
     try {
       await forgotPassword(email);
       setStep(2);
-      toast.success("OTP sent! Check your email 📧");
+      toast.success("OTP sent. Check your email");
     } catch (err) {
       toast.error(err.response?.data?.detail || "Email not found");
     } finally {
@@ -28,11 +32,14 @@ export default function ForgotPassword() {
 
   const handleResetPassword = async (e) => {
     e.preventDefault();
-    if (newPassword.length < 6) return toast.error("Password must be at least 6 characters");
+    if (newPassword.length < 6) {
+      toast.error("Password must be at least 6 characters");
+      return;
+    }
     setLoading(true);
     try {
       await resetPassword({ email, otp, new_password: newPassword });
-      toast.success("Password reset successfully! 🎉");
+      toast.success("Password reset successfully");
       navigate("/login");
     } catch (err) {
       toast.error(err.response?.data?.detail || "Invalid or expired OTP");
@@ -41,15 +48,204 @@ export default function ForgotPassword() {
     }
   };
 
+  const toggleTheme = () => {
+    const newTheme = theme === "light" ? "dark" : "light";
+    setTheme(newTheme);
+    localStorage.setItem("theme", newTheme);
+    document.body.className = newTheme === "dark" ? "dark" : "";
+  };
+
+  const getStyles = () => {
+    const isDark = theme === "dark";
+    
+    return {
+      container: {
+        minHeight: "100vh",
+        background: isDark ? "#000000" : "#f5f5f5",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        position: "relative",
+        fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+      },
+      themeToggle: {
+        position: "absolute",
+        top: 20,
+        right: 20,
+        background: isDark ? "#1a1a1a" : "#ffffff",
+        border: `1px solid ${isDark ? "#333333" : "#e0e0e0"}`,
+        borderRadius: 8,
+        padding: "8px 16px",
+        cursor: "pointer",
+        fontSize: 14,
+        fontWeight: 500,
+        color: isDark ? "#ffffff" : "#000000",
+        zIndex: 10,
+      },
+      card: {
+        background: isDark ? "#1a1a1a" : "#ffffff",
+        border: `1px solid ${isDark ? "#333333" : "#e0e0e0"}`,
+        borderRadius: 16,
+        padding: "40px",
+        width: "100%",
+        maxWidth: 420,
+        boxShadow: isDark ? "0 4px 20px rgba(0,0,0,0.3)" : "0 4px 20px rgba(0,0,0,0.05)",
+      },
+      logo: {
+        fontSize: 24,
+        fontWeight: 700,
+        color: "#0066cc",
+        marginBottom: 8,
+      },
+      emailBadge: {
+        background: "rgba(0,102,204,0.1)",
+        border: `1px solid rgba(0,102,204,0.2)`,
+        borderRadius: 8,
+        padding: "10px",
+        textAlign: "center",
+        marginBottom: 20,
+        fontSize: 13,
+        color: "#0066cc",
+      },
+      title: {
+        fontSize: 24,
+        fontWeight: 700,
+        color: isDark ? "#ffffff" : "#000000",
+        margin: "0 0 8px 0",
+      },
+      subtitle: {
+        color: isDark ? "#888888" : "#666666",
+        marginBottom: 24,
+        fontSize: 14,
+      },
+      input: {
+        width: "100%",
+        padding: "12px 14px",
+        marginBottom: 16,
+        border: `1px solid ${isDark ? "#333333" : "#e0e0e0"}`,
+        borderRadius: 8,
+        fontSize: 14,
+        outline: "none",
+        boxSizing: "border-box",
+        background: isDark ? "#000000" : "#ffffff",
+        color: isDark ? "#ffffff" : "#000000",
+        transition: "border 0.2s ease",
+      },
+      otpInput: {
+        width: "100%",
+        padding: "12px 14px",
+        marginBottom: 16,
+        border: `1px solid ${isDark ? "#333333" : "#e0e0e0"}`,
+        borderRadius: 8,
+        fontSize: 22,
+        fontWeight: 700,
+        letterSpacing: 8,
+        textAlign: "center",
+        outline: "none",
+        boxSizing: "border-box",
+        background: isDark ? "#000000" : "#ffffff",
+        color: isDark ? "#ffffff" : "#000000",
+      },
+      passwordWrapper: {
+        position: "relative",
+        marginBottom: 16,
+      },
+      passwordInput: {
+        width: "100%",
+        padding: "12px 48px 12px 14px",
+        border: `1px solid ${isDark ? "#333333" : "#e0e0e0"}`,
+        borderRadius: 8,
+        fontSize: 14,
+        outline: "none",
+        boxSizing: "border-box",
+        background: isDark ? "#000000" : "#ffffff",
+        color: isDark ? "#ffffff" : "#000000",
+      },
+      eyeBtn: {
+        position: "absolute",
+        right: 14,
+        top: "50%",
+        transform: "translateY(-50%)",
+        background: "none",
+        border: "none",
+        cursor: "pointer",
+        fontSize: 14,
+        padding: 0,
+        color: isDark ? "#888888" : "#666666",
+      },
+      button: {
+        width: "100%",
+        padding: "12px",
+        background: "#0066cc",
+        color: "#ffffff",
+        border: "none",
+        borderRadius: 8,
+        fontSize: 14,
+        fontWeight: 600,
+        cursor: "pointer",
+        transition: "opacity 0.2s ease",
+        marginBottom: 16,
+      },
+      backLink: {
+        background: "none",
+        border: "none",
+        color: "#0066cc",
+        cursor: "pointer",
+        fontSize: 13,
+        fontWeight: 500,
+        textDecoration: "none",
+        display: "block",
+        textAlign: "center",
+        width: "100%",
+        marginTop: 8,
+      },
+      link: {
+        textAlign: "center",
+        marginTop: 20,
+        color: isDark ? "#888888" : "#666666",
+        fontSize: 14,
+      },
+      linkText: {
+        color: "#0066cc",
+        fontWeight: 600,
+        textDecoration: "none",
+      },
+      spinner: {
+        width: 16,
+        height: 16,
+        border: "2px solid rgba(255,255,255,0.3)",
+        borderTop: "2px solid #ffffff",
+        borderRadius: "50%",
+        animation: "spin 0.8s linear infinite",
+        display: "inline-block",
+        marginRight: 8,
+      },
+      buttonContent: {
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 8,
+      },
+    };
+  };
+
+  const styles = getStyles();
+
   return (
     <div style={styles.container}>
+      <button onClick={toggleTheme} style={styles.themeToggle}>
+        {theme === "light" ? "Dark Mode" : "Light Mode"}
+      </button>
+
       <div style={styles.card}>
-        <div style={styles.logo}>⚡ BeProductive</div>
+        <div style={styles.logo}>BeProductive</div>
 
         {step === 1 && (
           <>
             <h2 style={styles.title}>Forgot Password?</h2>
-            <p style={styles.subtitle}>Enter your email and we'll send you a 6-digit OTP</p>
+            <p style={styles.subtitle}>
+              Enter your email and we'll send you a 6-digit OTP
+            </p>
             <form onSubmit={handleSendOTP}>
               <input
                 style={styles.input}
@@ -60,27 +256,40 @@ export default function ForgotPassword() {
                 required
               />
               <button style={styles.button} type="submit" disabled={loading}>
-                {loading ? "Sending OTP..." : "Send OTP 📧"}
+                {loading ? (
+                  <div style={styles.buttonContent}>
+                    <div style={styles.spinner}></div>
+                    Sending OTP...
+                  </div>
+                ) : (
+                  "Send OTP"
+                )}
               </button>
             </form>
             <p style={styles.link}>
               Remember your password?{" "}
-              <Link to="/login" style={styles.linkText}>Sign In</Link>
+              <Link to="/login" style={styles.linkText}>
+                Sign In
+              </Link>
             </p>
           </>
         )}
 
         {step === 2 && (
           <>
-            <div style={styles.emailBadge}>📧 OTP sent to {email}</div>
+            <div style={styles.emailBadge}>OTP sent to {email}</div>
             <h2 style={styles.title}>Enter OTP</h2>
-            <p style={styles.subtitle}>Check your email for the 6-digit code and set a new password</p>
+            <p style={styles.subtitle}>
+              Check your email for the 6-digit code and set a new password
+            </p>
             <form onSubmit={handleResetPassword}>
               <input
-                style={{ ...styles.input, textAlign: "center", fontSize: 24, fontWeight: 700, letterSpacing: 8 }}
+                style={styles.otpInput}
                 placeholder="000000"
                 value={otp}
-                onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                onChange={(e) =>
+                  setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
+                }
                 maxLength={6}
                 required
               />
@@ -93,54 +302,38 @@ export default function ForgotPassword() {
                   onChange={(e) => setNewPassword(e.target.value)}
                   required
                 />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} style={styles.eyeBtn}>
-                  {showPassword ? "🙈" : "👁️"}
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  style={styles.eyeBtn}
+                >
+                  {showPassword ? "Hide" : "Show"}
                 </button>
               </div>
               <button style={styles.button} type="submit" disabled={loading}>
-                {loading ? "Resetting..." : "Reset Password 🔐"}
+                {loading ? (
+                  <div style={styles.buttonContent}>
+                    <div style={styles.spinner}></div>
+                    Resetting...
+                  </div>
+                ) : (
+                  "Reset Password"
+                )}
               </button>
             </form>
             <button onClick={() => setStep(1)} style={styles.backLink}>
-              ← Use different email
+              Use different email
             </button>
           </>
         )}
       </div>
+
+      <style jsx>{`
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 }
-
-const styles = {
- container: { 
-  minHeight: "100vh", 
-  background: "linear-gradient(135deg, #0a0a0a 0%, #0d1117 50%, #0a0f1e 100%)", 
-  display: "flex", alignItems: "center", justifyContent: "center",
-  position: "relative",
-  overflow: "hidden"
-},
-card: { 
-  background: "rgba(13,17,23,0.95)", 
-  border: "1px solid rgba(99,179,237,0.2)",
-  borderRadius: 20, padding: "40px", width: "100%", maxWidth: 420, 
-  boxShadow: "0 0 40px rgba(99,179,237,0.1), 0 20px 60px rgba(0,0,0,0.5)",
-  backdropFilter: "blur(20px)"
-},
-logo: { fontSize: 28, fontWeight: 800, background: "linear-gradient(135deg, #00d2ff, #7b2ff7)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", marginBottom: 8 },
-title: { fontSize: 24, fontWeight: 700, color: "#e2e8f0", margin: "0 0 8px" },
-subtitle: { color: "#64748b", marginBottom: 24, fontSize: 14 },
-input: { width: "100%", padding: "14px 16px", marginBottom: 16, border: "1px solid rgba(99,179,237,0.2)", borderRadius: 12, fontSize: 15, outline: "none", boxSizing: "border-box", background: "rgba(255,255,255,0.05)", color: "#e2e8f0", transition: "border 0.2s" },
-button: { width: "100%", padding: "14px", background: "linear-gradient(135deg, #00d2ff 0%, #7b2ff7 100%)", color: "white", border: "none", borderRadius: 12, fontSize: 16, fontWeight: 700, cursor: "pointer" },
-link: { textAlign: "center", marginTop: 20, color: "#64748b", fontSize: 14 },
-linkText: { color: "#00d2ff", fontWeight: 600, textDecoration: "none" },
-passwordWrapper: { position: "relative", marginBottom: 8 },
-passwordInput: { width: "100%", padding: "14px 48px 14px 16px", border: "1px solid rgba(99,179,237,0.2)", borderRadius: 12, fontSize: 15, outline: "none", boxSizing: "border-box", background: "rgba(255,255,255,0.05)", color: "#e2e8f0" },
-eyeBtn: { position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", fontSize: 18, padding: 0 },
-forgotRow: { display: "flex", justifyContent: "flex-end", marginBottom: 16 },
-forgotLink: { color: "#00d2ff", fontSize: 13, fontWeight: 600, textDecoration: "none" },
-divider: { display: "flex", alignItems: "center", margin: "20px 0", gap: 10 },
-dividerText: { color: "#64748b", fontSize: 13, whiteSpace: "nowrap", padding: "0 10px" },
-socialRow: { display: "flex", gap: 12, marginBottom: 8 },
-socialBtn: { flex: 1, padding: "12px", border: "1px solid rgba(99,179,237,0.2)", borderRadius: 12, background: "rgba(255,255,255,0.05)", cursor: "pointer", fontSize: 14, fontWeight: 600, color: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 },
-spinner: { width: 18, height: 18, border: "3px solid rgba(255,255,255,0.3)", borderTop: "3px solid white", borderRadius: "50%", animation: "spin 0.8s linear infinite", display: "inline-block" },
-};
