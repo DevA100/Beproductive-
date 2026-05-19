@@ -4,11 +4,11 @@ import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
 
 const navItems = [
-  { path: "/dashboard", icon: "📊", label: "Dashboard" },
-  { path: "/planner", icon: "📅", label: "Weekly Planner" },
-  { path: "/journal", icon: "📝", label: "Journal" },
-  { path: "/ai-coach", icon: "🤖", label: "AI Coach" },
-  { path: "/settings", icon: "⚙️", label: "Settings" },
+  { path: "/dashboard", label: "Dashboard" },
+  { path: "/planner", label: "Weekly Planner" },
+  { path: "/journal", label: "Journal" },
+  { path: "/ai-coach", label: "AI Coach" },
+  { path: "/settings", label: "Settings" },
 ];
 
 export default function Sidebar() {
@@ -19,9 +19,6 @@ export default function Sidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
-  const avatar = localStorage.getItem("avatar_" + user?.id);
-
-  // ✅ Safe mobile detection (prevents Vercel crash)
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth <= 768);
     check();
@@ -29,35 +26,33 @@ export default function Sidebar() {
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  // close sidebar on route change
   useEffect(() => {
     setMobileOpen(false);
   }, [pathname]);
 
   const handleLogout = () => {
     logoutUser();
-    toast.success("Logged out!");
+    toast.success("Logged out");
     navigate("/login");
   };
 
-  const handleNavClick = () => setMobileOpen(false);
+  const avatar = localStorage.getItem("avatar_" + user?.id);
 
   return (
     <>
-      {/* Mobile Top Bar */}
       {isMobile && (
-        <div style={styles.mobileTopBar}>
-          <div style={styles.mobileLogo}>⚡ BeProductive</div>
+        <div style={styles.topbar}>
+          <div style={styles.brand}>BeProductive</div>
+
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
-            style={styles.hamburger}
+            style={styles.menuBtn}
           >
-            {mobileOpen ? "✕" : "☰"}
+            ☰
           </button>
         </div>
       )}
 
-      {/* Overlay */}
       {mobileOpen && (
         <div
           onClick={() => setMobileOpen(false)}
@@ -65,8 +60,7 @@ export default function Sidebar() {
         />
       )}
 
-      {/* Sidebar */}
-      <div
+      <aside
         style={{
           ...styles.sidebar,
           transform:
@@ -75,175 +69,201 @@ export default function Sidebar() {
               : "translateX(-100%)",
         }}
       >
-        {/* Logo */}
-        <div style={styles.logo}>⚡ BeProductive</div>
+        <div style={styles.logo}>BeProductive</div>
 
-        {/* User Info */}
-        <div style={styles.userInfo}>
-          {avatar ? (
-            <img src={avatar} alt="avatar" style={styles.avatarImg} />
-          ) : (
-            <div style={styles.avatar}>
-              {user?.username?.[0]?.toUpperCase()}
-            </div>
-          )}
+        <div style={styles.userBox}>
+          <div style={styles.avatar}>
+            {user?.username?.[0]?.toUpperCase()}
+          </div>
+
           <div>
-            <div style={styles.username}>{user?.username}</div>
-            <div style={styles.email}>{user?.email}</div>
+            <div style={styles.username}>
+              {user?.username}
+            </div>
+            <div style={styles.email}>
+              {user?.email}
+            </div>
           </div>
         </div>
 
-        {/* Nav */}
         <nav style={styles.nav}>
           {navItems.map((item) => (
             <Link
               key={item.path}
               to={item.path}
-              onClick={handleNavClick}
+              onClick={() => setMobileOpen(false)}
               style={{
-                ...styles.navItem,
+                ...styles.link,
                 ...(pathname === item.path
-                  ? styles.activeItem
+                  ? styles.active
                   : {}),
               }}
             >
-              <span style={styles.icon}>{item.icon}</span>
+              <span style={styles.dot} />
               {item.label}
             </Link>
           ))}
         </nav>
 
-        {/* Buy Me Coffee */}
+        {/* KEEPED: Buy Me Coffee */}
         <a
           href="https://buymeacoffee.com/yourname"
           target="_blank"
           rel="noopener noreferrer"
-          style={styles.coffeeBtn}
+          style={styles.coffee}
         >
-          ☕ Buy me a coffee
+          Buy me a coffee
         </a>
 
-        {/* Logout */}
         <button onClick={handleLogout} style={styles.logout}>
-          🚪 Logout
+          Logout
         </button>
-      </div>
+      </aside>
     </>
   );
 }
 
-/* ================= STYLES ================= */
 const styles = {
   sidebar: {
     width: 260,
-    minHeight: "100vh",
-    background: "linear-gradient(180deg, #0a0f1e 0%, #0d1117 100%)",
-    borderRight: "1px solid rgba(0,210,255,0.1)",
-    padding: "24px 16px",
-    display: "flex",
-    flexDirection: "column",
+    height: "100vh",
     position: "fixed",
     left: 0,
     top: 0,
-    zIndex: 1000,
-    transition: "transform 0.3s ease",
-  },
-  mobileTopBar: {
+    background: "#0b1020",
+    borderRight: "1px solid #1e293b",
+    padding: 20,
     display: "flex",
+    flexDirection: "column",
+    transition: "0.25s ease",
+    zIndex: 1000,
+  },
+
+  topbar: {
+    height: 60,
+    background: "#0b1020",
+    borderBottom: "1px solid #1e293b",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: "0 16px",
+    position: "fixed",
+    width: "100%",
+    zIndex: 1100,
+  },
+
+  brand: {
+    fontWeight: 700,
+    color: "#fff",
+  },
+
+  menuBtn: {
+    background: "transparent",
+    border: "1px solid #1e293b",
+    color: "#fff",
+    padding: "6px 10px",
+    borderRadius: 6,
+    fontSize: 18,
+  },
+
+  overlay: {
     position: "fixed",
     top: 0,
     left: 0,
     right: 0,
-    height: 60,
-    background: "linear-gradient(90deg, #0a0f1e, #0d1117)",
-    borderBottom: "1px solid rgba(0,210,255,0.1)",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: "0 16px",
-    zIndex: 1100,
-  },
-  mobileLogo: {
-    fontSize: 18,
-    fontWeight: 800,
-    background: "linear-gradient(135deg, #00d2ff, #7b2ff7)",
-    WebkitBackgroundClip: "text",
-    WebkitTextFillColor: "transparent",
-  },
-  hamburger: {
-    background: "none",
-    border: "none",
-    color: "#00d2ff",
-    fontSize: 26,
-    cursor: "pointer",
-  },
-  overlay: {
-    position: "fixed",
-    top: 0, left: 0, right: 0, bottom: 0,
-    background: "rgba(0,0,0,0.7)",
+    bottom: 0,
+    background: "rgba(0,0,0,0.6)",
     zIndex: 999,
   },
+
   logo: {
-    fontSize: 22,
-    fontWeight: 800,
-    background: "linear-gradient(135deg, #00d2ff, #7b2ff7)",
-    WebkitBackgroundClip: "text",
-    WebkitTextFillColor: "transparent",
-    marginBottom: 24,
-    padding: "0 8px",
+    fontSize: 20,
+    fontWeight: 700,
+    marginBottom: 20,
+    color: "#fff",
   },
-  userInfo: {
+
+  userBox: {
     display: "flex",
     alignItems: "center",
     gap: 12,
-    background: "rgba(0,210,255,0.05)",
-    border: "1px solid rgba(0,210,255,0.1)",
+    padding: 12,
+    background: "#111827",
     borderRadius: 12,
-    padding: "12px",
-    marginBottom: 24,
+    marginBottom: 20,
   },
+
   avatar: {
-    width: 40, height: 40,
+    width: 40,
+    height: 40,
     borderRadius: "50%",
-    background: "linear-gradient(135deg, #00d2ff, #7b2ff7)",
-    display: "flex", alignItems: "center", justifyContent: "center",
-    color: "white", fontWeight: 700, fontSize: 18, flexShrink: 0,
+    background: "#2563eb",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontWeight: 700,
+    color: "#fff",
   },
-  avatarImg: {
-    width: 40, height: 40,
+
+  username: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: 600,
+  },
+
+  email: {
+    fontSize: 12,
+    color: "#94a3b8",
+  },
+
+  nav: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 6,
+    flex: 1,
+    marginTop: 10,
+  },
+
+  link: {
+    padding: "10px 12px",
+    borderRadius: 10,
+    textDecoration: "none",
+    color: "#94a3b8",
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+  },
+
+  active: {
+    background: "#111827",
+    color: "#fff",
+  },
+
+  dot: {
+    width: 6,
+    height: 6,
     borderRadius: "50%",
-    objectFit: "cover",
-    flexShrink: 0,
-    border: "2px solid rgba(0,210,255,0.3)",
+    background: "#2563eb",
   },
-  username: { color: "#e2e8f0", fontWeight: 600, fontSize: 14 },
-  email: { color: "#64748b", fontSize: 11, marginTop: 2 },
-  nav: { display: "flex", flexDirection: "column", gap: 4, flex: 1 },
-  navItem: {
-    display: "flex", alignItems: "center", gap: 12,
-    padding: "12px 16px", borderRadius: 12,
-    color: "#64748b", textDecoration: "none",
-    fontSize: 14, fontWeight: 500,
-    transition: "all 0.2s",
-    border: "1px solid transparent",
+
+  coffee: {
+    marginTop: 16,
+    textAlign: "center",
+    padding: "10px",
+    borderRadius: 10,
+    background: "#fbbf24",
+    color: "#111",
+    fontWeight: 600,
+    textDecoration: "none",
   },
-  activeItem: {
-    background: "rgba(0,210,255,0.1)",
-    border: "1px solid rgba(0,210,255,0.2)",
-    color: "#00d2ff",
-  },
-  icon: { fontSize: 18 },
-  coffeeBtn: {
-    display: "flex", alignItems: "center", justifyContent: "center",
-    gap: 8,
-    background: "linear-gradient(135deg, #f6d365, #fda085)",
-    color: "white", borderRadius: 12, padding: "12px 16px",
-    textDecoration: "none", fontSize: 14, fontWeight: 700, marginBottom: 8,
-  },
+
   logout: {
-    background: "rgba(255,100,100,0.1)",
-    color: "#ff6b6b",
-    border: "1px solid rgba(255,100,100,0.2)",
-    borderRadius: 12, padding: "12px 16px",
-    cursor: "pointer", fontSize: 14, fontWeight: 600,
+    marginTop: 10,
+    background: "transparent",
+    border: "1px solid #ef4444",
+    color: "#ef4444",
+    padding: "10px",
+    borderRadius: 10,
+    cursor: "pointer",
   },
 };
