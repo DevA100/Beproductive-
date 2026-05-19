@@ -40,86 +40,168 @@ export default function Dashboard() {
       document.body.appendChild(link);
       link.click();
       link.remove();
-      toast.success("Excel exported! 📊");
+      toast.success("Excel exported successfully");
     } catch {
       toast.error("Export failed");
     }
   };
 
   const completedTasks = stats.tasks.filter((t) => t.status === "completed").length;
+  const inProgressTasks = stats.tasks.filter((t) => t.status === "in_progress").length;
+  const pendingTasks = stats.tasks.filter((t) => t.status === "pending").length;
   const avgScore = stats.journals.length
     ? (stats.journals.reduce((sum, j) => sum + (j.productivity_score || 0), 0) / stats.journals.length).toFixed(1)
     : 0;
 
   const statCards = [
-    { label: "Active Plan", value: stats.plan ? "✅ Active" : "❌ None", color: "#667eea" },
-    { label: "Total Tasks", value: stats.tasks.length, color: "#f093fb" },
-    { label: "Completed", value: completedTasks, color: "#4facfe" },
-    { label: "Avg Score", value: `${avgScore}/10`, color: "#43e97b" },
+    { label: "Active Plan", value: stats.plan ? "Active" : "None", icon: "📋", color: "#3b82f6", bgColor: "rgba(59, 130, 246, 0.1)" },
+    { label: "Total Tasks", value: stats.tasks.length, icon: "✓", color: "#8b5cf6", bgColor: "rgba(139, 92, 246, 0.1)" },
+    { label: "Completed", value: `${completedTasks}/${stats.tasks.length}`, icon: "🏆", color: "#10b981", bgColor: "rgba(16, 185, 129, 0.1)" },
+    { label: "Productivity", value: `${avgScore}/10`, icon: "📊", color: "#f59e0b", bgColor: "rgba(245, 158, 11, 0.1)" },
   ];
 
-  if (loading) return <div style={styles.loading}>Loading your dashboard... ⚡</div>;
+  if (loading) {
+    return (
+      <div style={styles.loadingContainer}>
+        <div style={styles.spinner}></div>
+        <p style={styles.loadingText}>Loading dashboard...</p>
+      </div>
+    );
+  }
 
   return (
     <div style={styles.container}>
+      {/* Header Section */}
       <div style={styles.header}>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          {avatar ? (
-            <img src={avatar} style={{ width: 52, height: 52, borderRadius: "50%", objectFit: "cover", border: "3px solid #667eea" }} alt="avatar" />
-          ) : (
-            <div style={{ width: 52, height: 52, borderRadius: "50%", background: "linear-gradient(135deg, #667eea, #764ba2)", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontWeight: 800, fontSize: 22 }}>
-              {user?.username?.[0]?.toUpperCase()}
-            </div>
-          )}
+        <div style={styles.userInfo}>
+          <div style={styles.avatarContainer}>
+            {avatar ? (
+              <img src={avatar} style={styles.avatar} alt="avatar" />
+            ) : (
+              <div style={styles.avatarPlaceholder}>
+                {user?.username?.[0]?.toUpperCase()}
+              </div>
+            )}
+          </div>
           <div>
-            <h1 style={styles.greeting}>Good day, {user?.username}! 👋</h1>
-            <p style={styles.subtitle}>Here's your productivity overview</p>
+            <h1 style={styles.greeting}>Welcome back, {user?.username}</h1>
+            <p style={styles.subtitle}>Track your productivity and achieve your goals</p>
           </div>
         </div>
-        <button onClick={handleExport} style={styles.exportBtn}>📊 Export Excel</button>
+        <button onClick={handleExport} style={styles.exportBtn}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+          Export Data
+        </button>
       </div>
 
+      {/* Stats Grid */}
       <div style={styles.statsGrid}>
-        {statCards.map((card) => (
-          <div key={card.label} style={{ ...styles.statCard, borderTop: `4px solid ${card.color}` }}>
-            <div style={{ ...styles.statValue, color: card.color }}>{card.value}</div>
+        {statCards.map((card, index) => (
+          <div key={index} style={{ ...styles.statCard, backgroundColor: card.bgColor, borderBottom: `3px solid ${card.color}` }}>
+            <div style={styles.statHeader}>
+              <span style={styles.statIcon}>{card.icon}</span>
+              <span style={{ ...styles.statValue, color: card.color }}>{card.value}</span>
+            </div>
             <div style={styles.statLabel}>{card.label}</div>
           </div>
         ))}
       </div>
 
+      {/* Task Progress Section */}
+      {stats.plan && stats.tasks.length > 0 && (
+        <div style={styles.section}>
+          <div style={styles.sectionHeader}>
+            <h2 style={styles.sectionTitle}>Task Progress</h2>
+            <div style={styles.progressStats}>
+              <span style={styles.progressBadge}>✅ Completed: {completedTasks}</span>
+              <span style={styles.progressBadge}>🔄 In Progress: {inProgressTasks}</span>
+              <span style={styles.progressBadge}>⏳ Pending: {pendingTasks}</span>
+            </div>
+          </div>
+          <div style={styles.progressBarContainer}>
+            <div style={{ ...styles.progressBar, width: `${(completedTasks / stats.tasks.length) * 100}%` }}></div>
+          </div>
+        </div>
+      )}
+
+      {/* Current Tasks Section */}
       <div style={styles.section}>
-        <h2 style={styles.sectionTitle}>📅 Current Week Tasks</h2>
+        <div style={styles.sectionHeader}>
+          <h2 style={styles.sectionTitle}>Current Tasks</h2>
+          {stats.plan && <span style={styles.planBadge}>Plan: {stats.plan.title || "Active Plan"}</span>}
+        </div>
         {stats.tasks.length === 0 ? (
-          <div style={styles.empty}>No tasks yet create your weekly plan! 🚀</div>
+          <div style={styles.emptyState}>
+            <div style={styles.emptyIcon}>📋</div>
+            <p style={styles.emptyText}>No tasks yet</p>
+            <p style={styles.emptySubtext}>Create a weekly plan to get started</p>
+          </div>
         ) : (
           <div style={styles.taskList}>
             {stats.tasks.map((task) => (
               <div key={task.id} style={styles.taskItem}>
-                <span style={{ ...styles.badge, background: task.status === "completed" ? "#43e97b20" : task.status === "in_progress" ? "#f09320" : "#66666620", color: task.status === "completed" ? "#43e97b" : task.status === "in_progress" ? "#f09320" : "#666" }}>
-                  {task.status}
-                </span>
-                <span style={styles.taskTitle}>{task.title}</span>
-                <span style={{ ...styles.priority, color: task.priority === "high" ? "#f5576c" : task.priority === "medium" ? "#f093fb" : "#667eea" }}>
-                  {task.priority}
-                </span>
+                <div style={styles.taskStatus}>
+                  <div style={{
+                    ...styles.statusDot,
+                    backgroundColor: task.status === "completed" ? "#10b981" : task.status === "in_progress" ? "#f59e0b" : "#64748b"
+                  }}></div>
+                </div>
+                <div style={styles.taskContent}>
+                  <div style={styles.taskTitle}>{task.title}</div>
+                  {task.description && <div style={styles.taskDescription}>{task.description}</div>}
+                </div>
+                <div style={styles.taskMeta}>
+                  <span style={{
+                    ...styles.priorityBadge,
+                    backgroundColor: task.priority === "high" ? "rgba(239, 68, 68, 0.1)" : task.priority === "medium" ? "rgba(245, 158, 11, 0.1)" : "rgba(59, 130, 246, 0.1)",
+                    color: task.priority === "high" ? "#ef4444" : task.priority === "medium" ? "#f59e0b" : "#3b82f6"
+                  }}>
+                    {task.priority}
+                  </span>
+                  <span style={styles.taskStatusText}>{task.status}</span>
+                </div>
               </div>
             ))}
           </div>
         )}
       </div>
 
+      {/* Recent Journals Section */}
       <div style={styles.section}>
-        <h2 style={styles.sectionTitle}>📝 Recent Journal Entries</h2>
+        <div style={styles.sectionHeader}>
+          <h2 style={styles.sectionTitle}>Recent Journal Entries</h2>
+          {stats.journals.length > 0 && <span style={styles.countBadge}>{stats.journals.length} entries</span>}
+        </div>
         {stats.journals.length === 0 ? (
-          <div style={styles.empty}>No journal entries yet start writing! ✍️</div>
+          <div style={styles.emptyState}>
+            <div style={styles.emptyIcon}>📝</div>
+            <p style={styles.emptyText}>No journal entries yet</p>
+            <p style={styles.emptySubtext}>Start documenting your journey</p>
+          </div>
         ) : (
-          <div style={styles.taskList}>
-            {stats.journals.slice(0, 5).map((j) => (
-              <div key={j.id} style={styles.journalItem}>
-                <span style={styles.journalDate}>{j.entry_date}</span>
-                <span style={styles.journalText}>{j.journal_text?.slice(0, 80) || "No text"}...</span>
-                <span style={styles.score}>⭐ {j.productivity_score || 0}/10</span>
+          <div style={styles.journalList}>
+            {stats.journals.slice(0, 5).map((journal) => (
+              <div key={journal.id} style={styles.journalItem}>
+                <div style={styles.journalHeader}>
+                  <span style={styles.journalDate}>{journal.entry_date}</span>
+                  <div style={styles.journalScore}>
+                    <span style={styles.scoreValue}>{journal.productivity_score || 0}</span>
+                    <span style={styles.scoreLabel}>/10</span>
+                  </div>
+                </div>
+                <p style={styles.journalText}>
+                  {journal.journal_text?.slice(0, 120) || "No content"}
+                  {journal.journal_text?.length > 120 && "..."}
+                </p>
+                {journal.mood && (
+                  <div style={styles.journalMood}>
+                    <span>Mood: {journal.mood}</span>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -130,26 +212,335 @@ export default function Dashboard() {
 }
 
 const styles = {
-  container: { padding: "20px 16px", maxWidth: 1000 },
-  loading: { display: "flex", alignItems: "center", justifyContent: "center", height: "50vh", fontSize: 20, color: "#00d2ff" },
-  header: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, flexWrap: "wrap", gap: 12 },
-  greeting: { fontSize: 22, fontWeight: 800, color: "#e2e8f0", margin: 0 },
-  subtitle: { color: "#64748b", margin: "4px 0 0", fontSize: 13 },
-  exportBtn: { background: "linear-gradient(135deg, #43e97b, #38f9d7)", color: "#0d1117", border: "none", borderRadius: 12, padding: "10px 16px", fontWeight: 700, cursor: "pointer", fontSize: 13 },
-  statsGrid: { display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12, marginBottom: 24 },
-  statCard: { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(0,210,255,0.1)", borderRadius: 16, padding: "16px", backdropFilter: "blur(10px)" },
-  statValue: { fontSize: 22, fontWeight: 800, marginBottom: 4 },
-  statLabel: { color: "#64748b", fontSize: 12 },
-  section: { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(0,210,255,0.1)", borderRadius: 16, padding: "16px", marginBottom: 16 },
-  sectionTitle: { fontSize: 16, fontWeight: 700, color: "#e2e8f0", marginTop: 0, marginBottom: 12 },
-  empty: { color: "#64748b", textAlign: "center", padding: "20px 0", fontSize: 14 },
-  taskList: { display: "flex", flexDirection: "column", gap: 8 },
-  taskItem: { display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", background: "rgba(0,210,255,0.03)", border: "1px solid rgba(0,210,255,0.08)", borderRadius: 10, flexWrap: "wrap" },
-  badge: { padding: "3px 8px", borderRadius: 20, fontSize: 11, fontWeight: 600 },
-  taskTitle: { flex: 1, fontWeight: 500, color: "#e2e8f0", fontSize: 14, minWidth: 100 },
-  priority: { fontSize: 11, fontWeight: 700, textTransform: "uppercase" },
-  journalItem: { display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", background: "rgba(0,210,255,0.03)", border: "1px solid rgba(0,210,255,0.08)", borderRadius: 10, flexWrap: "wrap" },
-  journalDate: { color: "#00d2ff", fontWeight: 600, fontSize: 12, minWidth: 80 },
-  journalText: { flex: 1, color: "#94a3b8", fontSize: 12, minWidth: 100 },
-  score: { color: "#a78bfa", fontWeight: 700, fontSize: 12 },
+  container: {
+    padding: "24px",
+    maxWidth: "1200px",
+    margin: "0 auto",
+    minHeight: "100vh",
+    background: "#06080f",
+  },
+  loadingContainer: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: "100vh",
+    background: "#06080f",
+  },
+  spinner: {
+    width: "40px",
+    height: "40px",
+    border: "3px solid #1e293b",
+    borderTop: "3px solid #3b82f6",
+    borderRadius: "50%",
+    animation: "spin 1s linear infinite",
+  },
+  loadingText: {
+    marginTop: "16px",
+    color: "#64748b",
+    fontSize: "14px",
+  },
+  header: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "32px",
+    paddingBottom: "24px",
+    borderBottom: "1px solid #1e293b",
+    flexWrap: "wrap",
+    gap: "16px",
+  },
+  userInfo: {
+    display: "flex",
+    alignItems: "center",
+    gap: "16px",
+  },
+  avatarContainer: {
+    width: "56px",
+    height: "56px",
+  },
+  avatar: {
+    width: "100%",
+    height: "100%",
+    borderRadius: "50%",
+    objectFit: "cover",
+    border: "2px solid #3b82f6",
+  },
+  avatarPlaceholder: {
+    width: "100%",
+    height: "100%",
+    borderRadius: "50%",
+    background: "#1e293b",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "24px",
+    fontWeight: "600",
+    color: "#3b82f6",
+    border: "2px solid #3b82f6",
+  },
+  greeting: {
+    fontSize: "24px",
+    fontWeight: "700",
+    color: "#f8fafc",
+    margin: "0 0 4px 0",
+    letterSpacing: "-0.5px",
+  },
+  subtitle: {
+    fontSize: "14px",
+    color: "#94a3b8",
+    margin: "0",
+  },
+  exportBtn: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    padding: "10px 20px",
+    background: "#1e293b",
+    color: "#f8fafc",
+    border: "1px solid #334155",
+    borderRadius: "8px",
+    fontSize: "14px",
+    fontWeight: "500",
+    cursor: "pointer",
+    transition: "all 0.2s",
+  },
+  statsGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+    gap: "16px",
+    marginBottom: "32px",
+  },
+  statCard: {
+    padding: "20px",
+    borderRadius: "12px",
+    transition: "transform 0.2s, box-shadow 0.2s",
+    cursor: "pointer",
+  },
+  statHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "12px",
+  },
+  statIcon: {
+    fontSize: "28px",
+  },
+  statValue: {
+    fontSize: "32px",
+    fontWeight: "700",
+  },
+  statLabel: {
+    fontSize: "13px",
+    fontWeight: "500",
+    color: "#94a3b8",
+    textTransform: "uppercase",
+    letterSpacing: "0.5px",
+  },
+  section: {
+    background: "#0d1117",
+    border: "1px solid #1e293b",
+    borderRadius: "12px",
+    padding: "24px",
+    marginBottom: "24px",
+  },
+  sectionHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "20px",
+    flexWrap: "wrap",
+    gap: "12px",
+  },
+  sectionTitle: {
+    fontSize: "18px",
+    fontWeight: "600",
+    color: "#f8fafc",
+    margin: "0",
+  },
+  planBadge: {
+    padding: "4px 12px",
+    background: "rgba(59, 130, 246, 0.1)",
+    borderRadius: "6px",
+    fontSize: "12px",
+    color: "#3b82f6",
+  },
+  countBadge: {
+    padding: "4px 12px",
+    background: "#1e293b",
+    borderRadius: "6px",
+    fontSize: "12px",
+    color: "#94a3b8",
+  },
+  progressStats: {
+    display: "flex",
+    gap: "12px",
+    flexWrap: "wrap",
+  },
+  progressBadge: {
+    padding: "4px 10px",
+    background: "#1e293b",
+    borderRadius: "6px",
+    fontSize: "12px",
+    color: "#94a3b8",
+  },
+  progressBarContainer: {
+    width: "100%",
+    height: "6px",
+    background: "#1e293b",
+    borderRadius: "3px",
+    overflow: "hidden",
+  },
+  progressBar: {
+    height: "100%",
+    background: "#10b981",
+    borderRadius: "3px",
+    transition: "width 0.3s ease",
+  },
+  taskList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "12px",
+  },
+  taskItem: {
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    padding: "16px",
+    background: "#111827",
+    border: "1px solid #1e293b",
+    borderRadius: "8px",
+    transition: "border-color 0.2s",
+  },
+  taskStatus: {
+    width: "8px",
+    height: "8px",
+  },
+  statusDot: {
+    width: "8px",
+    height: "8px",
+    borderRadius: "50%",
+  },
+  taskContent: {
+    flex: 1,
+  },
+  taskTitle: {
+    fontSize: "14px",
+    fontWeight: "500",
+    color: "#f8fafc",
+    marginBottom: "4px",
+  },
+  taskDescription: {
+    fontSize: "12px",
+    color: "#64748b",
+  },
+  taskMeta: {
+    display: "flex",
+    gap: "8px",
+    alignItems: "center",
+  },
+  priorityBadge: {
+    padding: "4px 8px",
+    borderRadius: "4px",
+    fontSize: "11px",
+    fontWeight: "600",
+    textTransform: "uppercase",
+  },
+  taskStatusText: {
+    fontSize: "11px",
+    padding: "4px 8px",
+    borderRadius: "4px",
+    background: "#1e293b",
+    color: "#94a3b8",
+    textTransform: "capitalize",
+  },
+  journalList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "16px",
+  },
+  journalItem: {
+    padding: "16px",
+    background: "#111827",
+    border: "1px solid #1e293b",
+    borderRadius: "8px",
+    transition: "border-color 0.2s",
+  },
+  journalHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "12px",
+  },
+  journalDate: {
+    fontSize: "13px",
+    fontWeight: "500",
+    color: "#3b82f6",
+  },
+  journalScore: {
+    display: "flex",
+    alignItems: "baseline",
+    gap: "2px",
+  },
+  scoreValue: {
+    fontSize: "18px",
+    fontWeight: "700",
+    color: "#f59e0b",
+  },
+  scoreLabel: {
+    fontSize: "11px",
+    color: "#64748b",
+  },
+  journalText: {
+    fontSize: "13px",
+    color: "#94a3b8",
+    lineHeight: "1.5",
+    margin: "0 0 8px 0",
+  },
+  journalMood: {
+    fontSize: "11px",
+    color: "#64748b",
+  },
+  emptyState: {
+    textAlign: "center",
+    padding: "48px 20px",
+  },
+  emptyIcon: {
+    fontSize: "48px",
+    marginBottom: "16px",
+  },
+  emptyText: {
+    fontSize: "16px",
+    fontWeight: "500",
+    color: "#f8fafc",
+    margin: "0 0 8px 0",
+  },
+  emptySubtext: {
+    fontSize: "13px",
+    color: "#64748b",
+    margin: "0",
+  },
 };
+
+// Add keyframes animation
+const styleSheet = document.createElement("style");
+styleSheet.textContent = `
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  button:hover {
+    background: #334155 !important;
+    border-color: #3b82f6 !important;
+  }
+  .stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  }
+  .task-item:hover {
+    border-color: #3b82f6;
+  }
+  .journal-item:hover {
+    border-color: #3b82f6;
+  }
+`;
+document.head.appendChild(styleSheet);
