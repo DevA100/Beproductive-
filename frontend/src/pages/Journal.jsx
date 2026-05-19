@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { getJournals, createJournal, updateJournal } from "../services/api";
 import toast from "react-hot-toast";
 import { getJournals, createJournal, updateJournal, deleteJournal } from "../services/api";
 export default function Journal() {
