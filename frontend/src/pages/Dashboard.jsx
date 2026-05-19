@@ -14,40 +14,30 @@ export default function Dashboard() {
     const fetchData = async () => {
       try {
         setError(null);
-        console.log("Fetching dashboard data...");
         
-        // Try to get active plan
         let plan = null;
         try {
           const planRes = await getActivePlan();
           plan = planRes.data;
-          console.log("Active plan fetched:", plan);
         } catch (err) {
-          console.log("No active plan found:", err.response?.status, err.response?.data);
-          if (err.response?.status === 404) {
-            console.log("No active plan exists");
-          } else {
+          if (err.response?.status !== 404) {
             console.error("Error fetching plan:", err);
           }
         }
 
-        // Get journals
         let journals = [];
         try {
           const journalsRes = await getJournals();
           journals = journalsRes.data || [];
-          console.log("Journals fetched:", journals.length);
         } catch (err) {
           console.error("Error fetching journals:", err);
         }
 
-        // Get tasks if plan exists
         let tasks = [];
         if (plan && plan.id) {
           try {
             const tasksRes = await getTasks(plan.id);
             tasks = tasksRes.data || [];
-            console.log("Tasks fetched:", tasks.length);
           } catch (err) {
             console.error("Error fetching tasks:", err);
           }
@@ -90,15 +80,16 @@ export default function Dashboard() {
   const completedTasks = stats.tasks.filter((t) => t.status === "completed").length;
   const inProgressTasks = stats.tasks.filter((t) => t.status === "in_progress").length;
   const pendingTasks = stats.tasks.filter((t) => t.status === "pending").length;
+  const completionRate = stats.tasks.length ? Math.round((completedTasks / stats.tasks.length) * 100) : 0;
   const avgScore = stats.journals.length
     ? (stats.journals.reduce((sum, j) => sum + (j.productivity_score || 0), 0) / stats.journals.length).toFixed(1)
     : 0;
 
   const statCards = [
-    { label: "Active Plan", value: stats.plan ? stats.plan.title || "Active" : "No Plan", icon: "📋", color: "#3b82f6", bgColor: "rgba(59, 130, 246, 0.1)" },
-    { label: "Total Tasks", value: stats.tasks.length, icon: "✓", color: "#8b5cf6", bgColor: "rgba(139, 92, 246, 0.1)" },
-    { label: "Completion Rate", value: stats.tasks.length ? `${Math.round((completedTasks / stats.tasks.length) * 100)}%` : "0%", icon: "🏆", color: "#10b981", bgColor: "rgba(16, 185, 129, 0.1)" },
-    { label: "Avg Productivity", value: `${avgScore}/10`, icon: "📊", color: "#f59e0b", bgColor: "rgba(245, 158, 11, 0.1)" },
+    { label: "Active Plan", value: stats.plan ? stats.plan.title || "Active" : "No Plan", color: "#3b82f6", bgColor: "rgba(59, 130, 246, 0.1)" },
+    { label: "Total Tasks", value: stats.tasks.length, color: "#8b5cf6", bgColor: "rgba(139, 92, 246, 0.1)" },
+    { label: "Completion Rate", value: `${completionRate}%`, color: "#10b981", bgColor: "rgba(16, 185, 129, 0.1)" },
+    { label: "Avg Productivity", value: `${avgScore}/10`, color: "#f59e0b", bgColor: "rgba(245, 158, 11, 0.1)" },
   ];
 
   if (loading) {
@@ -113,7 +104,6 @@ export default function Dashboard() {
   if (error) {
     return (
       <div style={styles.errorContainer}>
-        <div style={styles.errorIcon}>⚠️</div>
         <h3 style={styles.errorTitle}>Unable to Load Dashboard</h3>
         <p style={styles.errorMessage}>{error}</p>
         <button onClick={() => window.location.reload()} style={styles.retryButton}>
@@ -157,7 +147,6 @@ export default function Dashboard() {
         {statCards.map((card, index) => (
           <div key={index} style={{ ...styles.statCard, backgroundColor: card.bgColor, borderBottom: `3px solid ${card.color}` }}>
             <div style={styles.statHeader}>
-              <span style={styles.statIcon}>{card.icon}</span>
               <span style={{ ...styles.statValue, color: card.color }}>{card.value}</span>
             </div>
             <div style={styles.statLabel}>{card.label}</div>
@@ -177,7 +166,7 @@ export default function Dashboard() {
             </div>
           </div>
           <div style={styles.progressBarContainer}>
-            <div style={{ ...styles.progressBar, width: `${stats.tasks.length ? (completedTasks / stats.tasks.length) * 100 : 0}%` }}></div>
+            <div style={{ ...styles.progressBar, width: `${completionRate}%` }}></div>
           </div>
         </div>
       )}
@@ -190,7 +179,6 @@ export default function Dashboard() {
         </div>
         {stats.tasks.length === 0 ? (
           <div style={styles.emptyState}>
-            <div style={styles.emptyIcon}>📋</div>
             <p style={styles.emptyText}>No tasks yet</p>
             <p style={styles.emptySubtext}>
               {stats.plan ? "Start by adding tasks to your weekly plan" : "Create a weekly plan to get started"}
@@ -234,7 +222,6 @@ export default function Dashboard() {
         </div>
         {stats.journals.length === 0 ? (
           <div style={styles.emptyState}>
-            <div style={styles.emptyIcon}>📝</div>
             <p style={styles.emptyText}>No journal entries yet</p>
             <p style={styles.emptySubtext}>Start documenting your journey</p>
           </div>
@@ -299,10 +286,6 @@ const styles = {
     minHeight: "100vh",
     background: "#06080f",
     padding: "24px",
-  },
-  errorIcon: {
-    fontSize: "48px",
-    marginBottom: "16px",
   },
   errorTitle: {
     fontSize: "20px",
@@ -407,9 +390,6 @@ const styles = {
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: "12px",
-  },
-  statIcon: {
-    fontSize: "28px",
   },
   statValue: {
     fontSize: "32px",
@@ -586,10 +566,6 @@ const styles = {
     textAlign: "center",
     padding: "48px 20px",
   },
-  emptyIcon: {
-    fontSize: "48px",
-    marginBottom: "16px",
-  },
   emptyText: {
     fontSize: "16px",
     fontWeight: "500",
@@ -603,7 +579,6 @@ const styles = {
   },
 };
 
-// Add keyframes animation
 const styleSheet = document.createElement("style");
 styleSheet.textContent = `
   @keyframes spin {
