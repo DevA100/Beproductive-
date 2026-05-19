@@ -20,3 +20,8 @@ class WeeklyPlanResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class WeeklyPlanUpdate(BaseModel):
+    goal_summary: Optional[str] = None
+    status: Optional[PlanStatus] = None

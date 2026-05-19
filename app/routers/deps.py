@@ -1,3 +1,4 @@
+from pydantic import BaseModel
 from fastapi import Depends, HTTPException, APIRouter
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
@@ -31,3 +32,14 @@ def get_me(current_user: User = Depends(get_current_user)):
         "is_active": current_user.is_active,
         "created_at": current_user.created_at
     }
+
+
+class UpdatePhone(BaseModel):
+    phone_number: str
+
+
+@router.patch("/me/phone")
+def update_phone(data: UpdatePhone, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    current_user.phone_number = data.phone_number
+    db.commit()
+    return {"message": "Phone number updated!", "phone_number": data.phone_number}

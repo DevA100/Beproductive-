@@ -1,8 +1,6 @@
 import axios from "axios";
 
-const API = axios.create({
-  baseURL: "https://beproductive-8s2l.onrender.com",
-});
+const API = axios.create({ baseURL: "https://beproductive-8s2l.onrender.com" });
 
 API.interceptors.request.use((config) => {
   const token = localStorage.getItem("token");
@@ -23,6 +21,7 @@ export const createPlan = (data) => API.post("/plans/", data);
 export const getMyPlans = () => API.get("/plans/");
 export const getActivePlan = () => API.get("/plans/active");
 export const archivePlan = (id) => API.patch(`/plans/${id}/archive`);
+export const updatePlan = (id, data) => API.patch(`/plans/${id}`, data);
 
 // Tasks
 export const createTask = (planId, data) => API.post(`/tasks/${planId}`, data);
@@ -53,3 +52,9 @@ export const sendWeeklySummary = () =>
 // Export
 export const exportExcel = () =>
   API.get("/export/excel", { responseType: "blob" });
+
+// Users
+export const updatePhone = (phone_number) =>
+  API.patch("/users/me/phone", { phone_number });
+
+export default API;

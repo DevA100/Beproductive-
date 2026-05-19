@@ -18,21 +18,24 @@ def get_ai_response(system_prompt: str, user_message: str) -> str:
 
 
 def generate_weekly_plan(username: str, goals: str) -> str:
-    system_prompt = """You are an expert productivity coach called BeProductive AI.
-    Your job is to help users plan their week effectively.
-    Always be encouraging, specific, and realistic.
-    Structure your responses clearly with bullet points."""
+    system_prompt = """You are BeProductive AI, an expert productivity coach.
+    Generate structured weekly plans and always suggest 3 relevant articles with real URLs.
+    Format article suggestions as:
+    📚 RECOMMENDED READING:
+    1. [Article Title](https://real-url.com) - Brief description
+    2. [Article Title](https://real-url.com) - Brief description  
+    3. [Article Title](https://real-url.com) - Brief description"""
 
     user_message = f"""
     User: {username}
-    Their goals for this week: {goals}
+    Goals: {goals}
 
-    Please generate a structured weekly plan with:
-    1. A brief motivational opening
-    2. 3-5 specific tasks they should focus on this week
-    3. Daily action suggestions (Monday to Friday)
-    4. One key focus tip for the week
-    Keep it concise and actionable.
+    Generate:
+    1. Motivational opening
+    2. 3-5 specific weekly tasks
+    3. Daily action suggestions (Mon-Fri)
+    4. One key focus tip
+    5. 3 relevant articles with real links related to their goals
     """
     return get_ai_response(system_prompt, user_message)
 

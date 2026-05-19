@@ -1,3 +1,4 @@
+from app.schemas.weekly_plan import WeeklyPlanUpdate
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
@@ -71,6 +72,19 @@ def archive_plan(plan_id: int, db: Session = Depends(get_db), current_user: User
     if not plan:
         raise HTTPException(status_code=404, detail="Plan not found")
     plan.status = PlanStatus.archived
+    db.commit()
+    db.refresh(plan)
+    return plan
+
+
+@router.patch("/{plan_id}", response_model=WeeklyPlanResponse)
+def update_plan(plan_id: int, updates: WeeklyPlanUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    plan = db.query(WeeklyPlan).filter(WeeklyPlan.id == plan_id,
+                                       WeeklyPlan.user_id == current_user.id).first()
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan not found")
+    for key, value in updates.model_dump(exclude_unset=True).items():
+        setattr(plan, key, value)
     db.commit()
     db.refresh(plan)
     return plan

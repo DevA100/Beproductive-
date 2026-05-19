@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { resetPassword, forgotPassword } from "../services/api";
 import toast from "react-hot-toast";
-
+import { updatePhone } from "../services/api";
 export default function Settings() {
   const { user } = useAuth();
   const [step, setStep] = useState("idle"); // idle, otp_sent, resetting
@@ -54,6 +54,19 @@ export default function Settings() {
   reader.readAsDataURL(file);
 };
 
+  const [phone, setPhone] = useState(user?.phone_number || "");
+const [editingPhone, setEditingPhone] = useState(false);
+
+const handleSavePhone = async () => {
+  try {
+    await updatePhone(phone);
+    toast.success("Phone number saved! 📱");
+    setEditingPhone(false);
+  } catch {
+    toast.error("Failed to save phone");
+  }
+  };
+  
   return (
     <div style={styles.container}>
       <h1 style={styles.title}>⚙️ Settings</h1>
@@ -136,6 +149,28 @@ export default function Settings() {
           <div style={styles.infoRow}><span style={styles.infoKey}>Phone</span><span style={styles.infoVal}>{user?.phone_number || "No provided phone number "}</span></div>
           <div style={styles.infoRow}><span style={styles.infoKey}>Version</span><span style={styles.infoVal}>1.0.0</span></div>
         </div>
+        <div style={styles.infoRow}>
+  <span style={styles.infoKey}>📱 WhatsApp</span>
+  {editingPhone ? (
+    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+      <input
+        style={{ ...styles.input, marginBottom: 0, padding: "8px 12px", width: 180 }}
+        value={phone}
+        onChange={(e) => setPhone(e.target.value)}
+        placeholder="+2348012345678"
+      />
+      <button onClick={handleSavePhone} style={styles.primaryBtn}>Save</button>
+      <button onClick={() => setEditingPhone(false)} style={styles.secondaryBtn}>Cancel</button>
+    </div>
+  ) : (
+    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+      <span style={styles.infoVal}>{user?.phone_number || "Not set"}</span>
+      <button onClick={() => setEditingPhone(true)} style={styles.editBtn}>
+        {user?.phone_number ? "✏️ Edit" : "➕ Add"}
+      </button>
+    </div>
+  )}
+</div>
       </div>
     </div>
   );

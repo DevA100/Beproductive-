@@ -112,18 +112,35 @@ export default function ForgotPassword() {
 }
 
 const styles = {
-  container: { minHeight: "100vh", background: "linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)", display: "flex", alignItems: "center", justifyContent: "center" },
-  card: { background: "white", borderRadius: 20, padding: "40px", width: "100%", maxWidth: 420, boxShadow: "0 20px 60px rgba(0,0,0,0.3)" },
-  logo: { fontSize: 28, fontWeight: 800, background: "linear-gradient(135deg, #4facfe, #00f2fe)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", marginBottom: 8 },
-  title: { fontSize: 24, fontWeight: 700, color: "#1a1a2e", margin: "0 0 8px" },
-  subtitle: { color: "#666", marginBottom: 24, fontSize: 14 },
-  emailBadge: { background: "#4facfe20", color: "#4facfe", padding: "8px 14px", borderRadius: 10, fontSize: 13, fontWeight: 600, marginBottom: 16, textAlign: "center" },
-  input: { width: "100%", padding: "14px 16px", marginBottom: 16, border: "2px solid #eee", borderRadius: 12, fontSize: 15, outline: "none", boxSizing: "border-box" },
-  passwordWrapper: { position: "relative", marginBottom: 16 },
-  passwordInput: { width: "100%", padding: "14px 48px 14px 16px", border: "2px solid #eee", borderRadius: 12, fontSize: 15, outline: "none", boxSizing: "border-box" },
-  eyeBtn: { position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", fontSize: 18, padding: 0 },
-  button: { width: "100%", padding: "14px", background: "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)", color: "white", border: "none", borderRadius: 12, fontSize: 16, fontWeight: 700, cursor: "pointer", marginBottom: 12 },
-  link: { textAlign: "center", marginTop: 20, color: "#666", fontSize: 14 },
-  linkText: { color: "#4facfe", fontWeight: 600, textDecoration: "none" },
-  backLink: { background: "none", border: "none", color: "#4facfe", cursor: "pointer", fontSize: 14, fontWeight: 600, width: "100%", textAlign: "center", marginTop: 8 }
+ container: { 
+  minHeight: "100vh", 
+  background: "linear-gradient(135deg, #0a0a0a 0%, #0d1117 50%, #0a0f1e 100%)", 
+  display: "flex", alignItems: "center", justifyContent: "center",
+  position: "relative",
+  overflow: "hidden"
+},
+card: { 
+  background: "rgba(13,17,23,0.95)", 
+  border: "1px solid rgba(99,179,237,0.2)",
+  borderRadius: 20, padding: "40px", width: "100%", maxWidth: 420, 
+  boxShadow: "0 0 40px rgba(99,179,237,0.1), 0 20px 60px rgba(0,0,0,0.5)",
+  backdropFilter: "blur(20px)"
+},
+logo: { fontSize: 28, fontWeight: 800, background: "linear-gradient(135deg, #00d2ff, #7b2ff7)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", marginBottom: 8 },
+title: { fontSize: 24, fontWeight: 700, color: "#e2e8f0", margin: "0 0 8px" },
+subtitle: { color: "#64748b", marginBottom: 24, fontSize: 14 },
+input: { width: "100%", padding: "14px 16px", marginBottom: 16, border: "1px solid rgba(99,179,237,0.2)", borderRadius: 12, fontSize: 15, outline: "none", boxSizing: "border-box", background: "rgba(255,255,255,0.05)", color: "#e2e8f0", transition: "border 0.2s" },
+button: { width: "100%", padding: "14px", background: "linear-gradient(135deg, #00d2ff 0%, #7b2ff7 100%)", color: "white", border: "none", borderRadius: 12, fontSize: 16, fontWeight: 700, cursor: "pointer" },
+link: { textAlign: "center", marginTop: 20, color: "#64748b", fontSize: 14 },
+linkText: { color: "#00d2ff", fontWeight: 600, textDecoration: "none" },
+passwordWrapper: { position: "relative", marginBottom: 8 },
+passwordInput: { width: "100%", padding: "14px 48px 14px 16px", border: "1px solid rgba(99,179,237,0.2)", borderRadius: 12, fontSize: 15, outline: "none", boxSizing: "border-box", background: "rgba(255,255,255,0.05)", color: "#e2e8f0" },
+eyeBtn: { position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", fontSize: 18, padding: 0 },
+forgotRow: { display: "flex", justifyContent: "flex-end", marginBottom: 16 },
+forgotLink: { color: "#00d2ff", fontSize: 13, fontWeight: 600, textDecoration: "none" },
+divider: { display: "flex", alignItems: "center", margin: "20px 0", gap: 10 },
+dividerText: { color: "#64748b", fontSize: 13, whiteSpace: "nowrap", padding: "0 10px" },
+socialRow: { display: "flex", gap: 12, marginBottom: 8 },
+socialBtn: { flex: 1, padding: "12px", border: "1px solid rgba(99,179,237,0.2)", borderRadius: 12, background: "rgba(255,255,255,0.05)", cursor: "pointer", fontSize: 14, fontWeight: 600, color: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 },
+spinner: { width: 18, height: 18, border: "3px solid rgba(255,255,255,0.3)", borderTop: "3px solid white", borderRadius: "50%", animation: "spin 0.8s linear infinite", display: "inline-block" },
 };

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { getActivePlan, createPlan, getTasks, createTask, updateTask } from "../services/api";
+import { useSearchParams } from "react-router-dom";
+import { getActivePlan, createPlan, getTasks, createTask, updateTask, updatePlan } from "../services/api";
 import toast from "react-hot-toast";
 
 export default function WeeklyPlanner() {
@@ -10,8 +11,20 @@ export default function WeeklyPlanner() {
   const [showNewTask, setShowNewTask] = useState(false);
   const [planForm, setPlanForm] = useState({ week_start: "", week_end: "", goal_summary: "" });
   const [taskForm, setTaskForm] = useState({ title: "", description: "", priority: "medium", due_date: "" });
+  const [editingPlan, setEditingPlan] = useState(false);
+  const [editingTaskId, setEditingTaskId] = useState(null);
+  const [editTaskForm, setEditTaskForm] = useState({});
+  const [searchParams] = useSearchParams();
 
-  useEffect(() => { fetchPlan(); }, []);
+  useEffect(() => {
+    const aiPlan = searchParams.get("ai_plan");
+    if (aiPlan) {
+      setShowNewPlan(true);
+      setPlanForm(prev => ({ ...prev, goal_summary: aiPlan.slice(0, 500) }));
+      toast.success("AI plan loaded! Set your dates and save 📅");
+    }
+    fetchPlan();
+  }, []);
 
   const fetchPlan = async () => {
     try {
@@ -28,6 +41,9 @@ export default function WeeklyPlanner() {
 
   const handleCreatePlan = async (e) => {
     e.preventDefault();
+    if (planForm.week_start >= planForm.week_end) return toast.error("Week end must be after week start! 📅");
+    const diff = (new Date(planForm.week_end) - new Date(planForm.week_start)) / (1000 * 60 * 60 * 24);
+    if (diff < 2) return toast.error("Plan must be at least 2 days long!");
     try {
       const res = await createPlan(planForm);
       setPlan(res.data);
@@ -58,6 +74,28 @@ export default function WeeklyPlanner() {
       toast.success("Task updated!");
     } catch {
       toast.error("Failed to update task");
+    }
+  };
+
+  const handleSaveTaskEdit = async (taskId) => {
+    try {
+      const res = await updateTask(taskId, editTaskForm);
+      setTasks(tasks.map(t => t.id === taskId ? res.data : t));
+      setEditingTaskId(null);
+      toast.success("Task updated! ✅");
+    } catch {
+      toast.error("Failed to update task");
+    }
+  };
+
+  const handleSavePlanEdit = async () => {
+    try {
+      await updatePlan(plan.id, { goal_summary: planForm.goal_summary });
+      setPlan({ ...plan, goal_summary: planForm.goal_summary });
+      setEditingPlan(false);
+      toast.success("Plan updated! ✅");
+    } catch {
+      toast.error("Failed to update plan");
     }
   };
 
@@ -96,12 +134,26 @@ export default function WeeklyPlanner() {
       {plan && (
         <>
           <div style={styles.planBanner}>
-            <div>
+            <div style={{ flex: 1 }}>
               <div style={styles.planWeek}>📅 {plan.week_start} → {plan.week_end}</div>
               <div style={styles.planGoal}>{plan.goal_summary || "No goal summary set"}</div>
             </div>
-            <span style={styles.activeBadge}>🟢 Active</span>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <span style={styles.activeBadge}>🟢 Active</span>
+              <button onClick={() => { setEditingPlan(true); setPlanForm({ ...planForm, goal_summary: plan.goal_summary || "" }); }} style={styles.editPlanBtn}>✏️ Edit</button>
+            </div>
           </div>
+
+          {editingPlan && (
+            <div style={styles.card}>
+              <h3 style={styles.cardTitle}>Edit Weekly Plan</h3>
+              <textarea style={styles.textarea} placeholder="Update your goal summary" value={planForm.goal_summary} onChange={(e) => setPlanForm({ ...planForm, goal_summary: e.target.value })} rows={3} />
+              <div style={styles.btnRow}>
+                <button onClick={handleSavePlanEdit} style={styles.primaryBtn}>Save Changes</button>
+                <button onClick={() => setEditingPlan(false)} style={styles.secondaryBtn}>Cancel</button>
+              </div>
+            </div>
+          )}
 
           <div style={styles.card}>
             <div style={styles.cardHeader}>
@@ -134,18 +186,39 @@ export default function WeeklyPlanner() {
               ) : (
                 tasks.map((task) => (
                   <div key={task.id} style={styles.taskItem}>
-                    <div style={styles.taskInfo}>
-                      <span style={{ ...styles.priorityDot, background: task.priority === "high" ? "#f5576c" : task.priority === "medium" ? "#f093fb" : "#667eea" }} />
-                      <div>
-                        <div style={{ ...styles.taskTitle, textDecoration: task.status === "completed" ? "line-through" : "none", color: task.status === "completed" ? "#aaa" : "#333" }}>{task.title}</div>
-                        {task.description && <div style={styles.taskDesc}>{task.description}</div>}
+                    {editingTaskId === task.id ? (
+                      <div style={{ flex: 1 }}>
+                        <input style={{ ...styles.input, marginBottom: 8 }} value={editTaskForm.title} onChange={(e) => setEditTaskForm({ ...editTaskForm, title: e.target.value })} placeholder="Task title" />
+                        <input style={{ ...styles.input, marginBottom: 8 }} value={editTaskForm.description || ""} onChange={(e) => setEditTaskForm({ ...editTaskForm, description: e.target.value })} placeholder="Description" />
+                        <select style={{ ...styles.input, marginBottom: 8 }} value={editTaskForm.priority} onChange={(e) => setEditTaskForm({ ...editTaskForm, priority: e.target.value })}>
+                          <option value="low">Low Priority</option>
+                          <option value="medium">Medium Priority</option>
+                          <option value="high">High Priority</option>
+                        </select>
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <button onClick={() => handleSaveTaskEdit(task.id)} style={styles.primaryBtn}>Save</button>
+                          <button onClick={() => setEditingTaskId(null)} style={styles.secondaryBtn}>Cancel</button>
+                        </div>
                       </div>
-                    </div>
-                    <select style={styles.statusSelect} value={task.status} onChange={(e) => handleStatusChange(task.id, e.target.value)}>
-                      <option value="pending">Pending</option>
-                      <option value="in_progress">In Progress</option>
-                      <option value="completed">Completed</option>
-                    </select>
+                    ) : (
+                      <>
+                        <div style={styles.taskInfo}>
+                          <span style={{ ...styles.priorityDot, background: task.priority === "high" ? "#f5576c" : task.priority === "medium" ? "#a78bfa" : "#00d2ff" }} />
+                          <div>
+                            <div style={{ ...styles.taskTitle, textDecoration: task.status === "completed" ? "line-through" : "none", color: task.status === "completed" ? "#aaa" : "#333" }}>{task.title}</div>
+                            {task.description && <div style={styles.taskDesc}>{task.description}</div>}
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                          <select style={styles.statusSelect} value={task.status} onChange={(e) => handleStatusChange(task.id, e.target.value)}>
+                            <option value="pending">Pending</option>
+                            <option value="in_progress">In Progress</option>
+                            <option value="completed">Completed</option>
+                          </select>
+                          <button onClick={() => { setEditingTaskId(task.id); setEditTaskForm({ title: task.title, description: task.description || "", priority: task.priority }); }} style={styles.editTaskBtn}>✏️</button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 ))
               )}
@@ -160,32 +233,32 @@ export default function WeeklyPlanner() {
 const styles = {
   container: { padding: "20px 16px", maxWidth: 900 },
   loading: { display: "flex", alignItems: "center", justifyContent: "center", height: "50vh", fontSize: 20, color: "#667eea" },
-  header: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 },
-  title: { fontSize: 28, fontWeight: 800, color: "#1a1a2e", margin: 0 },
-  planBanner: { background: "linear-gradient(135deg, #667eea20, #764ba220)", border: "2px solid #667eea40", borderRadius: 16, padding: "20px 24px", marginBottom: 24, display: "flex", justifyContent: "space-between", alignItems: "center" },
+  header: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, flexWrap: "wrap", gap: 12 },
+  title: { fontSize: 24, fontWeight: 800, color: "#1a1a2e", margin: 0 },
+  planBanner: { background: "linear-gradient(135deg, #667eea20, #764ba220)", border: "2px solid #667eea40", borderRadius: 16, padding: "20px 24px", marginBottom: 24, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 },
   planWeek: { fontWeight: 700, color: "#667eea", marginBottom: 4 },
   planGoal: { color: "#555", fontSize: 14 },
   activeBadge: { background: "#43e97b20", color: "#43e97b", padding: "6px 14px", borderRadius: 20, fontWeight: 600, fontSize: 13 },
+  editPlanBtn: { background: "#667eea20", color: "#667eea", border: "none", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 13, fontWeight: 600 },
+  editTaskBtn: { background: "#667eea20", color: "#667eea", border: "none", borderRadius: 8, padding: "6px 10px", cursor: "pointer", fontSize: 14 },
   card: { background: "white", borderRadius: 16, padding: "24px", boxShadow: "0 4px 20px rgba(0,0,0,0.08)", marginBottom: 20 },
   cardHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 },
   cardTitle: { fontSize: 18, fontWeight: 700, color: "#1a1a2e", margin: 0 },
   primaryBtn: { background: "linear-gradient(135deg, #667eea, #764ba2)", color: "white", border: "none", borderRadius: 10, padding: "10px 20px", fontWeight: 700, cursor: "pointer", fontSize: 14 },
   secondaryBtn: { background: "#f0f0f0", color: "#666", border: "none", borderRadius: 10, padding: "10px 20px", fontWeight: 600, cursor: "pointer", fontSize: 14 },
-   row: { display: "grid", gridTemplateColumns: "1fr", gap: 12 },
+  row: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 },
   field: { display: "flex", flexDirection: "column", gap: 6 },
   label: { fontSize: 13, fontWeight: 600, color: "#555" },
   input: { padding: "12px 14px", border: "2px solid #eee", borderRadius: 10, fontSize: 14, outline: "none", width: "100%", boxSizing: "border-box" },
   textarea: { width: "100%", padding: "12px 14px", border: "2px solid #eee", borderRadius: 10, fontSize: 14, outline: "none", resize: "vertical", boxSizing: "border-box", marginBottom: 12 },
-  btnRow: { display: "flex", gap: 10, marginTop: 12 },
+  btnRow: { display: "flex", gap: 10, marginTop: 12, flexWrap: "wrap" },
   taskForm: { background: "#f8f9ff", borderRadius: 12, padding: 16, marginBottom: 16, display: "flex", flexDirection: "column", gap: 10 },
   taskList: { display: "flex", flexDirection: "column", gap: 10 },
-  taskItem: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", background: "#f8f9ff", borderRadius: 12 },
-  taskInfo: { display: "flex", alignItems: "center", gap: 12, flex: 1 },
+  taskItem: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", background: "#f8f9ff", borderRadius: 12, flexWrap: "wrap", gap: 8 },
+  taskInfo: { display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 150 },
   priorityDot: { width: 10, height: 10, borderRadius: "50%", flexShrink: 0 },
   taskTitle: { fontWeight: 600, fontSize: 15, color: "#333" },
   taskDesc: { color: "#888", fontSize: 13, marginTop: 2 },
   statusSelect: { padding: "8px 12px", border: "2px solid #eee", borderRadius: 8, fontSize: 13, outline: "none", cursor: "pointer" },
-    empty: { textAlign: "center", color: "#aaa", padding: "24px 0" },
-  statsGrid: { display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }
-
+  empty: { textAlign: "center", color: "#aaa", padding: "24px 0" },
 };
