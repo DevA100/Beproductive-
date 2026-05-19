@@ -2,11 +2,27 @@ import axios from "axios";
 
 const API = axios.create({ baseURL: "https://beproductive-8s2l.onrender.com" });
 
+// Request interceptor
 API.interceptors.request.use((config) => {
   const token = localStorage.getItem("token");
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
   return config;
 });
+
+// Response interceptor for better error handling
+API.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      window.location.href = "/login";
+    }
+    return Promise.reject(error);
+  },
+);
 
 // Auth
 export const signup = (data) => API.post("/auth/signup", data);
@@ -17,25 +33,26 @@ export const forgotPassword = (email) =>
 export const resetPassword = (data) => API.post("/auth/reset-password", data);
 
 // Weekly Plans
-export const createPlan = (data) => API.post("/plans/", data);
-export const getMyPlans = () => API.get("/plans/");
+export const createPlan = (data) => API.post("/plans", data);
+export const getMyPlans = () => API.get("/plans");
 export const getActivePlan = () => API.get("/plans/active");
 export const archivePlan = (id) => API.patch(`/plans/${id}/archive`);
 export const updatePlan = (id, data) => API.patch(`/plans/${id}`, data);
-
 export const deletePlan = (id) => API.delete(`/plans/${id}`);
-export const deleteJournal = (date) => API.delete(`/journal/${date}`);
+
 // Tasks
 export const createTask = (planId, data) => API.post(`/tasks/${planId}`, data);
 export const getTasks = (planId) => API.get(`/tasks/${planId}`);
 export const updateTask = (taskId, data) => API.patch(`/tasks/${taskId}`, data);
+export const deleteTask = (taskId) => API.delete(`/tasks/${taskId}`);
 
 // Journal
-export const createJournal = (data) => API.post("/journal/", data);
-export const getJournals = () => API.get("/journal/");
+export const createJournal = (data) => API.post("/journal", data);
+export const getJournals = () => API.get("/journal");
 export const getJournalByDate = (date) => API.get(`/journal/${date}`);
 export const updateJournal = (date, data) =>
   API.patch(`/journal/${date}`, data);
+export const deleteJournal = (date) => API.delete(`/journal/${date}`);
 
 // AI Coach
 export const generateWeeklyPlan = (data) =>
@@ -58,5 +75,6 @@ export const exportExcel = () =>
 // Users
 export const updatePhone = (phone_number) =>
   API.patch("/users/me/phone", { phone_number });
+export const updateProfile = (data) => API.patch("/users/me", data);
 
 export default API;

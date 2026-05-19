@@ -7,28 +7,68 @@ export default function Dashboard() {
   const { user } = useAuth();
   const [stats, setStats] = useState({ tasks: [], journals: [], plan: null });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const avatar = localStorage.getItem("avatar_" + user?.id);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [planRes, journalsRes] = await Promise.allSettled([getActivePlan(), getJournals()]);
-        const plan = planRes.status === "fulfilled" ? planRes.value.data : null;
-        const journals = journalsRes.status === "fulfilled" ? journalsRes.value.data : [];
-        let tasks = [];
-        if (plan) {
-          const tasksRes = await getTasks(plan.id).catch(() => ({ data: [] }));
-          tasks = tasksRes.data;
+        setError(null);
+        console.log("Fetching dashboard data...");
+        
+        // Try to get active plan
+        let plan = null;
+        try {
+          const planRes = await getActivePlan();
+          plan = planRes.data;
+          console.log("Active plan fetched:", plan);
+        } catch (err) {
+          console.log("No active plan found:", err.response?.status, err.response?.data);
+          if (err.response?.status === 404) {
+            console.log("No active plan exists");
+          } else {
+            console.error("Error fetching plan:", err);
+          }
         }
+
+        // Get journals
+        let journals = [];
+        try {
+          const journalsRes = await getJournals();
+          journals = journalsRes.data || [];
+          console.log("Journals fetched:", journals.length);
+        } catch (err) {
+          console.error("Error fetching journals:", err);
+        }
+
+        // Get tasks if plan exists
+        let tasks = [];
+        if (plan && plan.id) {
+          try {
+            const tasksRes = await getTasks(plan.id);
+            tasks = tasksRes.data || [];
+            console.log("Tasks fetched:", tasks.length);
+          } catch (err) {
+            console.error("Error fetching tasks:", err);
+          }
+        }
+
         setStats({ tasks, journals, plan });
       } catch (err) {
-        console.error(err);
+        console.error("Dashboard fetch error:", err);
+        setError("Failed to load dashboard data");
+        toast.error("Failed to load dashboard");
       } finally {
         setLoading(false);
       }
     };
-    fetchData();
-  }, []);
+
+    if (user) {
+      fetchData();
+    } else {
+      setLoading(false);
+    }
+  }, [user]);
 
   const handleExport = async () => {
     try {
@@ -36,12 +76,13 @@ export default function Dashboard() {
       const url = window.URL.createObjectURL(new Blob([res.data]));
       const link = document.createElement("a");
       link.href = url;
-      link.setAttribute("download", `BeProductive_${user?.username}.xlsx`);
+      link.setAttribute("download", `BeProductive_${user?.username || "user"}.xlsx`);
       document.body.appendChild(link);
       link.click();
       link.remove();
       toast.success("Excel exported successfully");
-    } catch {
+    } catch (err) {
+      console.error("Export error:", err);
       toast.error("Export failed");
     }
   };
@@ -54,10 +95,10 @@ export default function Dashboard() {
     : 0;
 
   const statCards = [
-    { label: "Active Plan", value: stats.plan ? "Active" : "None", icon: "📋", color: "#3b82f6", bgColor: "rgba(59, 130, 246, 0.1)" },
+    { label: "Active Plan", value: stats.plan ? stats.plan.title || "Active" : "No Plan", icon: "📋", color: "#3b82f6", bgColor: "rgba(59, 130, 246, 0.1)" },
     { label: "Total Tasks", value: stats.tasks.length, icon: "✓", color: "#8b5cf6", bgColor: "rgba(139, 92, 246, 0.1)" },
-    { label: "Completed", value: `${completedTasks}/${stats.tasks.length}`, icon: "🏆", color: "#10b981", bgColor: "rgba(16, 185, 129, 0.1)" },
-    { label: "Productivity", value: `${avgScore}/10`, icon: "📊", color: "#f59e0b", bgColor: "rgba(245, 158, 11, 0.1)" },
+    { label: "Completion Rate", value: stats.tasks.length ? `${Math.round((completedTasks / stats.tasks.length) * 100)}%` : "0%", icon: "🏆", color: "#10b981", bgColor: "rgba(16, 185, 129, 0.1)" },
+    { label: "Avg Productivity", value: `${avgScore}/10`, icon: "📊", color: "#f59e0b", bgColor: "rgba(245, 158, 11, 0.1)" },
   ];
 
   if (loading) {
@@ -65,6 +106,19 @@ export default function Dashboard() {
       <div style={styles.loadingContainer}>
         <div style={styles.spinner}></div>
         <p style={styles.loadingText}>Loading dashboard...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={styles.errorContainer}>
+        <div style={styles.errorIcon}>⚠️</div>
+        <h3 style={styles.errorTitle}>Unable to Load Dashboard</h3>
+        <p style={styles.errorMessage}>{error}</p>
+        <button onClick={() => window.location.reload()} style={styles.retryButton}>
+          Retry
+        </button>
       </div>
     );
   }
@@ -79,12 +133,12 @@ export default function Dashboard() {
               <img src={avatar} style={styles.avatar} alt="avatar" />
             ) : (
               <div style={styles.avatarPlaceholder}>
-                {user?.username?.[0]?.toUpperCase()}
+                {user?.username?.[0]?.toUpperCase() || "U"}
               </div>
             )}
           </div>
           <div>
-            <h1 style={styles.greeting}>Welcome back, {user?.username}</h1>
+            <h1 style={styles.greeting}>Welcome back, {user?.username || "User"}</h1>
             <p style={styles.subtitle}>Track your productivity and achieve your goals</p>
           </div>
         </div>
@@ -117,13 +171,13 @@ export default function Dashboard() {
           <div style={styles.sectionHeader}>
             <h2 style={styles.sectionTitle}>Task Progress</h2>
             <div style={styles.progressStats}>
-              <span style={styles.progressBadge}>✅ Completed: {completedTasks}</span>
-              <span style={styles.progressBadge}>🔄 In Progress: {inProgressTasks}</span>
-              <span style={styles.progressBadge}>⏳ Pending: {pendingTasks}</span>
+              <span style={styles.progressBadge}>Completed: {completedTasks}</span>
+              <span style={styles.progressBadge}>In Progress: {inProgressTasks}</span>
+              <span style={styles.progressBadge}>Pending: {pendingTasks}</span>
             </div>
           </div>
           <div style={styles.progressBarContainer}>
-            <div style={{ ...styles.progressBar, width: `${(completedTasks / stats.tasks.length) * 100}%` }}></div>
+            <div style={{ ...styles.progressBar, width: `${stats.tasks.length ? (completedTasks / stats.tasks.length) * 100 : 0}%` }}></div>
           </div>
         </div>
       )}
@@ -138,11 +192,13 @@ export default function Dashboard() {
           <div style={styles.emptyState}>
             <div style={styles.emptyIcon}>📋</div>
             <p style={styles.emptyText}>No tasks yet</p>
-            <p style={styles.emptySubtext}>Create a weekly plan to get started</p>
+            <p style={styles.emptySubtext}>
+              {stats.plan ? "Start by adding tasks to your weekly plan" : "Create a weekly plan to get started"}
+            </p>
           </div>
         ) : (
           <div style={styles.taskList}>
-            {stats.tasks.map((task) => (
+            {stats.tasks.slice(0, 5).map((task) => (
               <div key={task.id} style={styles.taskItem}>
                 <div style={styles.taskStatus}>
                   <div style={{
@@ -197,11 +253,6 @@ export default function Dashboard() {
                   {journal.journal_text?.slice(0, 120) || "No content"}
                   {journal.journal_text?.length > 120 && "..."}
                 </p>
-                {journal.mood && (
-                  <div style={styles.journalMood}>
-                    <span>Mood: {journal.mood}</span>
-                  </div>
-                )}
               </div>
             ))}
           </div>
@@ -239,6 +290,40 @@ const styles = {
     marginTop: "16px",
     color: "#64748b",
     fontSize: "14px",
+  },
+  errorContainer: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: "100vh",
+    background: "#06080f",
+    padding: "24px",
+  },
+  errorIcon: {
+    fontSize: "48px",
+    marginBottom: "16px",
+  },
+  errorTitle: {
+    fontSize: "20px",
+    fontWeight: "600",
+    color: "#f8fafc",
+    margin: "0 0 8px 0",
+  },
+  errorMessage: {
+    fontSize: "14px",
+    color: "#64748b",
+    marginBottom: "24px",
+  },
+  retryButton: {
+    padding: "10px 24px",
+    background: "#3b82f6",
+    color: "white",
+    border: "none",
+    borderRadius: "8px",
+    fontSize: "14px",
+    fontWeight: "500",
+    cursor: "pointer",
   },
   header: {
     display: "flex",
@@ -495,11 +580,7 @@ const styles = {
     fontSize: "13px",
     color: "#94a3b8",
     lineHeight: "1.5",
-    margin: "0 0 8px 0",
-  },
-  journalMood: {
-    fontSize: "11px",
-    color: "#64748b",
+    margin: "0",
   },
   emptyState: {
     textAlign: "center",
