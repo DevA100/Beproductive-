@@ -60,3 +60,20 @@ Generate a weekly plan following the exact format above. No markdown formatting.
 """
 
     return get_ai_response(system_prompt, user_message)
+
+
+def weekly_summary(username: str, completed_tasks: str, archived_journals: str, avg_score: float) -> str:
+    """Generate a weekly summary using AI"""
+    system_prompt = """You are BeProductive AI. Generate an insightful weekly summary
+    for the user. Use plain text only, no markdown formatting.
+    Keep it under 200 words."""
+
+    user_message = f"""
+    User: {username}
+    Average productivity score: {avg_score}/10
+    Tasks completed this week: {completed_tasks}
+    Journal highlights: {archived_journals}
+    
+    Generate a weekly summary in plain text.
+    """
+    return get_ai_response(system_prompt, user_message)
