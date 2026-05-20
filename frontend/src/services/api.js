@@ -68,6 +68,8 @@ export const deleteJournal = (date) => API.delete(`/journal/${date}`);
 // AI Coach
 export const generateWeeklyPlan = (data) =>
   API.post("/ai-coach/generate-weekly-plan", data);
+export const createPlanFromAI = (data) =>
+  API.post("/ai-coach/create-plan-from-ai", data);
 export const dailyCheckin = (data) => API.post("/ai-coach/daily-checkin", data);
 export const suggestActions = (data) =>
   API.post("/ai-coach/suggest-next-actions", data);

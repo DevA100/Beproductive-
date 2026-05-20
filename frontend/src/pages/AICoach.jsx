@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { generateWeeklyPlan, dailyCheckin, suggestActions, weeklySummary } from "../services/api";
+import { generateWeeklyPlan, createPlanFromAI, dailyCheckin, suggestActions, weeklySummary } from "../services/api";
 import toast from "react-hot-toast";
 
 export default function AICoach() {
@@ -8,13 +8,12 @@ export default function AICoach() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState("");
   const [generatedPlan, setGeneratedPlan] = useState(null);
+  const [suggestedTasks, setSuggestedTasks] = useState([]);
+  const [goalSummary, setGoalSummary] = useState("");
   const [goals, setGoals] = useState("");
   const [checkinForm, setCheckinForm] = useState({ journal_text: "", productivity_score: 7 });
   const [actionForm, setActionForm] = useState({ todays_journal: "" });
   const navigate = useNavigate();
-
-  const [suggestedTasks, setSuggestedTasks] = useState([]);
-  const [goalSummary, setGoalSummary] = useState("");
 
   const handleGeneratePlan = async () => {
     if (!goals.trim()) return toast.error("Please enter your goals");
@@ -30,6 +29,27 @@ export default function AICoach() {
       toast.error("AI service failed. Please try again"); 
     } finally { 
       setLoading(false); 
+    }
+  };
+
+  const handleCreatePlanFromAI = async () => {
+    if (!generatedPlan) return;
+    
+    setLoading(true);
+    try {
+      const res = await createPlanFromAI({
+        ai_plan: generatedPlan,
+        goal_summary: goalSummary,
+        suggested_tasks: suggestedTasks
+      });
+      
+      toast.success(`Success! Created plan with ${res.data.tasks_created.length} tasks`);
+      navigate("/planner"); // Redirect to planner to see the created plan
+    } catch (err) {
+      console.error("Failed to create plan:", err);
+      toast.error(err.response?.data?.detail || "Failed to create plan");
+    } finally {
+      setLoading(false);
     }
   };
   
@@ -75,6 +95,7 @@ export default function AICoach() {
   };
 
   const renderResult = (text) => {
+    if (!text) return null;
     return text.split('\n').map((line, i) => {
       const linkRegex = /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g;
       const parts = [];
@@ -121,7 +142,7 @@ export default function AICoach() {
             <p style={styles.hint}>Tell the AI your goals and it will create a structured weekly plan with article recommendations</p>
             <textarea 
               style={styles.textarea} 
-              placeholder="Example: Learn React, exercise 3 times, finish project report, read 30 minutes daily..." 
+              placeholder="Example: Learn Java, build a project, complete assignments..." 
               value={goals} 
               onChange={(e) => setGoals(e.target.value)} 
               rows={4} 
@@ -198,15 +219,29 @@ export default function AICoach() {
           <div style={styles.result}>
             <h4 style={styles.resultTitle}>AI Response:</h4>
             <div style={styles.resultText}>{renderResult(result)}</div>
+            {suggestedTasks.length > 0 && (
+              <div style={styles.taskSummary}>
+                <h4 style={styles.taskSummaryTitle}>Tasks to be created:</h4>
+                <ul style={styles.taskList}>
+                  {suggestedTasks.map((task, idx) => (
+                    <li key={idx} style={styles.taskItem}>
+                      <strong>{task.title}</strong>
+                      {task.description && <span> - {task.description}</span>}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         )}
 
-        {generatedPlan && (
+        {generatedPlan && suggestedTasks.length > 0 && (
           <button 
-            onClick={() => navigate("/planner?ai_plan=" + encodeURIComponent(generatedPlan))} 
+            onClick={handleCreatePlanFromAI} 
+            disabled={loading}
             style={{ ...styles.secondaryBtn, marginTop: 16 }}
           >
-            Use This Plan in Weekly Planner
+            {loading ? "Creating Plan..." : "Create Weekly Plan with Tasks"}
           </button>
         )}
       </div>
@@ -355,6 +390,29 @@ const styles = {
     fontSize: 14,
     lineHeight: 1.8,
     fontFamily: "inherit",
+    marginBottom: 16,
+  },
+  taskSummary: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTop: "1px solid #bfdbfe",
+  },
+  taskSummaryTitle: {
+    color: "#1e293b",
+    fontWeight: 600,
+    marginTop: 0,
+    marginBottom: 12,
+    fontSize: 14,
+  },
+  taskList: {
+    margin: 0,
+    paddingLeft: 20,
+  },
+  taskItem: {
+    color: "#475569",
+    fontSize: 13,
+    marginBottom: 8,
+    lineHeight: 1.5,
   },
 };
 

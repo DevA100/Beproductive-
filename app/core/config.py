@@ -7,9 +7,10 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     GROQ_API_KEY: str
-    MAIL_USERNAME: str
-    MAIL_PASSWORD: str
+    MAIL_USERNAME: str = ""
+    MAIL_PASSWORD: str = ""
     MAIL_FROM: str
+    BREVO_API_KEY: str
     WHATSAPP_TOKEN: str = ""
     WHATSAPP_PHONE_ID: str = ""
 

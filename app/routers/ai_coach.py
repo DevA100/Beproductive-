@@ -4,17 +4,12 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.routers.deps import get_current_user
 from app.models.user import User
-from app.models.task import Task, TaskStatus
-from app.models.journal import Journal
-from app.services.ai_coach import (
-    generate_weekly_plan,
-    analyze_daily_progress,
-    suggest_next_actions,
-    weekly_summary
-)
+from app.models.task import Task, TaskStatus, TaskPriority
+from app.models.weekly_plan import WeeklyPlan, PlanStatus
+from app.services.ai_coach import generate_weekly_plan
 from pydantic import BaseModel
-from typing import Optional
-from datetime import datetime
+from typing import List
+from datetime import date, timedelta
 
 router = APIRouter(prefix="/ai-coach", tags=["AI Coach"])
 
@@ -23,13 +18,10 @@ class GoalsInput(BaseModel):
     goals: str
 
 
-class DailyCheckIn(BaseModel):
-    journal_text: Optional[str] = "No journal entry yet"
-    productivity_score: Optional[float] = 5.0
-
-
-class NextActionInput(BaseModel):
-    todays_journal: Optional[str] = "Day is going okay"
+class CreatePlanFromAIRequest(BaseModel):
+    ai_plan: str
+    goal_summary: str
+    suggested_tasks: List[dict]
 
 
 @router.post("/generate-weekly-plan")
@@ -42,7 +34,7 @@ def ai_generate_weekly_plan(
         plan = generate_weekly_plan(
             username=current_user.username, goals=input.goals)
 
-        # Extract tasks from the AI response (clean version without emojis)
+        # Extract tasks from the AI response
         tasks = []
 
         # Look for "Top 5 Tasks" section
@@ -55,7 +47,6 @@ def ai_generate_weekly_plan(
         if task_section:
             task_lines = task_section.group(1).split('\n')
             for line in task_lines:
-                # Match patterns like "1. Task Name - Description" or "1. Task Name"
                 match = re.match(
                     r'^\s*\d+\.\s+(.+?)(?:\s*-\s*(.+))?$', line.strip())
                 if match:
@@ -80,7 +71,7 @@ def ai_generate_weekly_plan(
             "message": "Weekly plan generated successfully",
             "ai_plan": plan,
             "goal_summary": goal_summary,
-            "suggested_tasks": tasks[:5],  # Limit to 5 tasks
+            "suggested_tasks": tasks[:5],
             "tip": "Click 'Use This Plan' to auto-create your plan with tasks"
         }
     except Exception as e:
@@ -88,105 +79,80 @@ def ai_generate_weekly_plan(
             status_code=500, detail=f"AI service error: {str(e)}")
 
 
-@router.post("/daily-checkin")
-def ai_daily_checkin(
-    input: DailyCheckIn,
+@router.post("/create-plan-from-ai")
+def create_plan_from_ai(
+    request: CreatePlanFromAIRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """AI analyzes your day and gives feedback"""
+    """Create a weekly plan and tasks from AI-generated content"""
     try:
-        # Get today's completed tasks
-        today = datetime.utcnow().date()
-        completed = db.query(Task).filter(
-            Task.user_id == current_user.id,
-            Task.status == TaskStatus.completed
-        ).all()
-        completed_str = ", ".join(
-            [t.title for t in completed]) if completed else "No tasks completed yet"
+        # Calculate week start and end (current week)
+        today = date.today()
+        week_start = today - timedelta(days=today.weekday())
+        week_end = week_start + timedelta(days=6)
 
-        feedback = analyze_daily_progress(
-            username=current_user.username,
-            completed_tasks=completed_str,
-            journal_text=input.journal_text,
-            productivity_score=input.productivity_score
+        # Check if user already has a plan for this week
+        existing_plan = db.query(WeeklyPlan).filter(
+            WeeklyPlan.user_id == current_user.id,
+            WeeklyPlan.week_start == week_start,
+            WeeklyPlan.status == PlanStatus.active
+        ).first()
+
+        if existing_plan:
+            raise HTTPException(
+                status_code=400,
+                detail="You already have an active plan for this week. Please archive it first."
+            )
+
+        # Create the weekly plan
+        new_plan = WeeklyPlan(
+            user_id=current_user.id,
+            week_start=week_start,
+            week_end=week_end,
+            goal_summary=request.goal_summary,
+            status=PlanStatus.active
         )
+        db.add(new_plan)
+        db.flush()
+
+        # Create tasks from the suggested tasks
+        created_tasks = []
+        for task_data in request.suggested_tasks:
+            new_task = Task(
+                weekly_plan_id=new_plan.id,
+                user_id=current_user.id,
+                title=task_data.get("title", "Untitled Task"),
+                description=task_data.get("description", ""),
+                priority=TaskPriority.medium,
+                status=TaskStatus.pending,
+                is_ai_generated=True
+            )
+            db.add(new_task)
+            created_tasks.append({
+                "id": new_task.id,
+                "title": new_task.title,
+                "description": new_task.description
+            })
+
+        db.commit()
+        db.refresh(new_plan)
+
         return {
-            "message": "Daily check-in complete",
-            "completed_tasks": completed_str,
-            "ai_feedback": feedback
+            "message": f"Successfully created plan with {len(created_tasks)} tasks",
+            "plan": {
+                "id": new_plan.id,
+                "week_start": new_plan.week_start,
+                "week_end": new_plan.week_end,
+                "goal_summary": new_plan.goal_summary,
+                "status": new_plan.status.value
+            },
+            "tasks_created": created_tasks
         }
+
+    except HTTPException:
+        raise
     except Exception as e:
+        db.rollback()
         raise HTTPException(
-            status_code=500, detail=f"AI service error: {str(e)}")
-
-
-@router.post("/suggest-next-actions")
-def ai_suggest_actions(
-    input: NextActionInput,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """AI suggests your next top 3 actions based on pending tasks"""
-    try:
-        pending = db.query(Task).filter(
-            Task.user_id == current_user.id,
-            Task.status != TaskStatus.completed
-        ).all()
-        pending_str = ", ".join(
-            [f"{t.title} ({t.priority})" for t in pending]) if pending else "No pending tasks"
-
-        suggestions = suggest_next_actions(
-            username=current_user.username,
-            pending_tasks=pending_str,
-            todays_journal=input.todays_journal
-        )
-        return {
-            "pending_tasks_count": len(pending),
-            "ai_suggestions": suggestions
-        }
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"AI service error: {str(e)}")
-
-
-@router.get("/weekly-summary")
-def ai_weekly_summary(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """AI generates your weekly performance summary"""
-    try:
-        completed = db.query(Task).filter(
-            Task.user_id == current_user.id,
-            Task.status == TaskStatus.completed
-        ).all()
-        completed_str = ", ".join(
-            [t.title for t in completed]) if completed else "No completed tasks"
-
-        journals = db.query(Journal).filter(
-            Journal.user_id == current_user.id
-        ).order_by(Journal.entry_date.desc()).limit(7).all()
-
-        journal_highlights = " | ".join([
-            f"{j.entry_date}: {j.journal_text[:50] if j.journal_text else 'No text'}"
-            for j in journals
-        ]) if journals else "No journal entries"
-
-        scores = [j.productivity_score for j in journals if j.productivity_score]
-        avg_score = sum(scores) / len(scores) if scores else 0
-
-        summary = weekly_summary(
-            username=current_user.username,
-            completed_tasks=completed_str,
-            archived_journals=journal_highlights,
-            avg_score=round(avg_score, 1)
-        )
-        return {
-            "tasks_completed": len(completed),
-            "average_productivity_score": round(avg_score, 1),
-            "ai_summary": summary
-        }
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"AI service error: {str(e)}")
+            status_code=500, detail=f"Failed to create plan: {str(e)}")

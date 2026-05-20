@@ -1,26 +1,26 @@
-import aiosmtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+import brevo_python as brevo
+from brevo_python.rest import ApiException
 from app.core.config import settings
 import logging
 
 logger = logging.getLogger(__name__)
 
+# Configure Brevo
+configuration = brevo.Configuration()
+configuration.api_key['api-key'] = settings.BREVO_API_KEY
+api_instance = brevo.TransactionalEmailsApi(brevo.ApiClient(configuration))
+
 
 async def send_email(to_email: str, subject: str, body: str):
+    """Send email using Brevo API (bypasses Render SMTP block)"""
     try:
-        logger.info(f"Attempting to send email to {to_email}")
+        logger.info(f"Attempting to send email to {to_email} via Brevo")
 
-        message = MIMEMultipart("alternative")
-        message["From"] = settings.MAIL_FROM
-        message["To"] = to_email
-        message["Subject"] = subject
+        # Create the email content
+        sender = {"email": settings.MAIL_FROM, "name": "BeProductive"}
+        to = [{"email": to_email}]
 
-        # Plain text version
-        text_part = MIMEText(body, "plain")
-        message.attach(text_part)
-
-        # HTML version
+        # HTML version with styling
         html_body = f"""
         <html>
           <body style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px;">
@@ -36,60 +36,26 @@ async def send_email(to_email: str, subject: str, body: str):
         </html>
         """
 
-        html_part = MIMEText(html_body, "html")
-        message.attach(html_part)
+        # Create the email request
+        send_smtp_email = brevo.SendSmtpEmail(
+            to=to,
+            sender=sender,
+            subject=subject,
+            text_content=body,
+            html_content=html_body
+        )
 
-        # Try multiple SMTP configurations
-        smtp_configs = [
-            # Gmail with STARTTLS (port 587)
-            {
-                "hostname": "smtp.gmail.com",
-                "port": 587,
-                "use_tls": False,
-                "start_tls": True
-            },
-            # Gmail with SSL (port 465)
-            {
-                "hostname": "smtp.gmail.com",
-                "port": 465,
-                "use_tls": True,
-                "start_tls": False
-            },
-            # Outlook/Hotmail
-            {
-                "hostname": "smtp-mail.outlook.com",
-                "port": 587,
-                "use_tls": False,
-                "start_tls": True
-            }
-        ]
+        # Send the email
+        response = api_instance.send_transac_email(send_smtp_email)
+        logger.info(
+            f"Email sent successfully to {to_email}, message_id: {response.message_id}")
+        return True
 
-        last_error = None
-        for config in smtp_configs:
-            try:
-                logger.info(
-                    f"Trying SMTP config: {config['hostname']}:{config['port']}")
-                await aiosmtplib.send(
-                    message,
-                    hostname=config["hostname"],
-                    port=config["port"],
-                    username=settings.MAIL_USERNAME,
-                    password=settings.MAIL_PASSWORD,
-                    use_tls=config["use_tls"],
-                    start_tls=config["start_tls"]
-                )
-                logger.info(
-                    f"Email sent successfully to {to_email} using {config['hostname']}")
-                return
-            except Exception as e:
-                last_error = e
-                logger.warning(f"Failed with {config['hostname']}: {str(e)}")
-                continue
-
-        raise last_error or Exception("All SMTP configurations failed")
-
+    except ApiException as e:
+        logger.error(f"Brevo API error sending to {to_email}: {e}")
+        raise Exception(f"Failed to send email: {e}")
     except Exception as e:
-        logger.error(f"Failed to send email to {to_email}: {str(e)}")
+        logger.error(f"Unexpected error sending to {to_email}: {str(e)}")
         raise e
 
 
