@@ -18,56 +18,46 @@ def get_ai_response(system_prompt: str, user_message: str) -> str:
 
 
 def generate_weekly_plan(username: str, goals: str) -> str:
-    system_prompt = """You are BeProductive AI.
-Generate a weekly plan in PURE PLAIN TEXT.
-ABSOLUTELY NO markdown, NO asterisks, NO hashtags, NO bold, NO italic.
-Use ONLY numbers, letters, spaces, and dashes.
+    system_prompt = """You are BeProductive AI. Create a weekly plan.
 
-Format exactly like this:
+IMPORTANT: Return ONLY the tasks as a JSON-like list. Do NOT add any extra text.
 
-Weekly Goal: One sentence summary of the week's focus
+Format your response EXACTLY like this:
 
-Top 5 Tasks for the Week:
-1. Task Name - Brief description
-2. Task Name - Brief description
-3. Task Name - Brief description
-4. Task Name - Brief description
-5. Task Name - Brief description
+WEEKLY GOAL: [one sentence goal]
 
-Daily Breakdown:
-Monday: Main task description
-Tuesday: Main task description
-Wednesday: Main task description
-Thursday: Main task description
-Friday: Main task description
-Saturday: Main task description
-Sunday: Rest and planning
+TASKS:
+1. [Task title] - [description]
+2. [Task title] - [description]
+3. [Task title] - [description]
+4. [Task title] - [description]
+5. [Task title] - [description]
 
-Focus Tip: One actionable tip
+DAILY BREAKDOWN:
+Monday: [task]
+Tuesday: [task]
+Wednesday: [task]
+Thursday: [task]
+Friday: [task]
 
-No markdown. No special characters."""
+FOCUS TIP: [one tip]
 
-    user_message = f"""
-User: {username}
-Goals this week: {goals}
+Keep it simple. No markdown. No bold. No italic."""
 
-Generate a weekly plan following the exact format above. Use plain text only.
-"""
-
+    user_message = f"User: {username}\nGoals: {goals}\n\nCreate weekly plan."
     return get_ai_response(system_prompt, user_message)
 
 
 def weekly_summary(username: str, completed_tasks: str, archived_journals: str, avg_score: float) -> str:
-    system_prompt = """You are BeProductive AI. Generate an insightful weekly summary
-    for the user. Use plain text only, no markdown formatting.
-    Keep it under 200 words."""
+    system_prompt = """You are BeProductive AI. Generate a weekly summary.
+    Use plain text only. Keep it under 200 words."""
 
     user_message = f"""
     User: {username}
     Average productivity score: {avg_score}/10
-    Tasks completed this week: {completed_tasks}
-    Journal highlights: {archived_journals}
+    Tasks completed: {completed_tasks}
+    Journal: {archived_journals}
     
-    Generate a weekly summary in plain text.
+    Generate weekly summary.
     """
     return get_ai_response(system_prompt, user_message)

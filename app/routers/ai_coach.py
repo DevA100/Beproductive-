@@ -43,82 +43,66 @@ def ai_generate_weekly_plan(
         plan = generate_weekly_plan(
             username=current_user.username, goals=input.goals)
 
-        print(f"RAW AI PLAN:\n{plan}\n")
+        print("=== AI RESPONSE ===")
+        print(plan)
+        print("=== END AI RESPONSE ===")
 
         tasks = []
         lines = plan.split('\n')
-        in_task_section = False
 
         for line in lines:
-            line_stripped = line.strip()
+            line = line.strip()
+            # Look for lines that start with a number followed by dot
+            if re.match(r'^\d+\.', line):
+                # Remove the number and dot
+                task_part = re.sub(r'^\d+\.\s*', '', line)
 
-            if 'Top 5 Tasks' in line_stripped or 'TOP 5 TASKS' in line_stripped:
-                in_task_section = True
-                continue
+                # Split by dash if present
+                if ' - ' in task_part:
+                    parts = task_part.split(' - ', 1)
+                    title = parts[0].strip()
+                    description = parts[1].strip() if len(parts) > 1 else ""
+                else:
+                    title = task_part
+                    description = ""
 
-            if in_task_section and ('Daily Breakdown' in line_stripped or 'Focus Tip' in line_stripped):
-                break
+                # Clean up any markdown
+                title = title.replace('**', '').replace('*', '').strip()
+                description = description.replace(
+                    '**', '').replace('*', '').strip()
 
-            if in_task_section:
-                match = re.match(r'^\s*(\d+)\.\s+(.+)$', line_stripped)
-                if match:
-                    task_text = match.group(2).strip()
-                    task_text = re.sub(r'\*\*', '', task_text)
-                    task_text = re.sub(r'__', '', task_text)
-
-                    if ' - ' in task_text:
-                        title, description = task_text.split(' - ', 1)
-                        title = title.strip()
-                        description = description.strip()
-                    else:
-                        title = task_text
-                        description = ""
-
-                    title = title.replace('*', '').replace('#', '').strip()
-                    description = description.replace(
-                        '*', '').replace('#', '').strip()
-
-                    tasks.append({
-                        "title": title[:100],
-                        "description": description[:200] if description else ""
-                    })
-
-        if not tasks:
-            all_matches = re.findall(r'(\d+)\.\s+([^\n]+)', plan)
-            for match in all_matches[:5]:
-                title = match[1].strip()
-                title = re.sub(r'\*\*', '', title)
-                title = re.sub(r'__', '', title)
                 tasks.append({
                     "title": title[:100],
-                    "description": ""
+                    "description": description[:200] if description else ""
                 })
 
+                if len(tasks) >= 5:
+                    break
+
+        # Extract goal
         goal_summary = input.goals[:300]
         for line in lines:
-            if 'Weekly Goal' in line:
-                if ':' in line:
-                    goal_summary = line.split(':', 1)[1].strip()
-                else:
-                    goal_summary = line.replace('Weekly Goal', '').strip()
-                goal_summary = re.sub(r'\*\*', '', goal_summary)
-                goal_summary = re.sub(r'__', '', goal_summary)
+            if 'WEEKLY GOAL:' in line or 'Weekly Goal:' in line:
+                goal_summary = line.split(':', 1)[1].strip()
+                goal_summary = goal_summary.replace(
+                    '**', '').replace('*', '').strip()
                 goal_summary = goal_summary[:300]
                 break
 
-        print(f"Extracted {len(tasks)} tasks")
+        print(f"Found {len(tasks)} tasks")
+        for i, task in enumerate(tasks):
+            print(f"  Task {i+1}: {task['title']}")
 
         return {
-            "message": "Weekly plan generated successfully",
+            "message": "Weekly plan generated",
             "ai_plan": plan,
             "goal_summary": goal_summary,
-            "suggested_tasks": tasks[:5],
-            "tip": "Click 'Use This Plan' to auto-create your plan with tasks"
+            "suggested_tasks": tasks,
+            "tip": "Click to create plan"
         }
     except Exception as e:
-        print(f"Error: {str(e)}")
-        raise HTTPException(
-            status_code=500, detail=f"AI service error: {str(e)}")
+        print(f"Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/create-plan-from-ai")
@@ -141,7 +125,7 @@ def create_plan_from_ai(
         if existing_plan:
             raise HTTPException(
                 status_code=400,
-                detail="You already have an active plan for this week. Please archive it first."
+                detail="You already have an active plan for this week"
             )
 
         new_plan = WeeklyPlan(
@@ -159,7 +143,7 @@ def create_plan_from_ai(
             new_task = Task(
                 weekly_plan_id=new_plan.id,
                 user_id=current_user.id,
-                title=task_data.get("title", "Untitled Task"),
+                title=task_data.get("title", "Task"),
                 description=task_data.get("description", ""),
                 priority=TaskPriority.medium,
                 status=TaskStatus.pending,
@@ -168,22 +152,14 @@ def create_plan_from_ai(
             db.add(new_task)
             created_tasks.append({
                 "id": new_task.id,
-                "title": new_task.title,
-                "description": new_task.description
+                "title": new_task.title
             })
 
         db.commit()
-        db.refresh(new_plan)
 
         return {
-            "message": f"Successfully created plan with {len(created_tasks)} tasks",
-            "plan": {
-                "id": new_plan.id,
-                "week_start": new_plan.week_start,
-                "week_end": new_plan.week_end,
-                "goal_summary": new_plan.goal_summary,
-                "status": new_plan.status.value
-            },
+            "message": f"Created plan with {len(created_tasks)} tasks",
+            "plan_id": new_plan.id,
             "tasks_created": created_tasks
         }
 
@@ -191,8 +167,7 @@ def create_plan_from_ai(
         raise
     except Exception as e:
         db.rollback()
-        raise HTTPException(
-            status_code=500, detail=f"Failed to create plan: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/daily-checkin")
@@ -207,38 +182,30 @@ def ai_daily_checkin(
             Task.status == TaskStatus.completed
         ).all()
         completed_str = ", ".join(
-            [t.title for t in completed]) if completed else "No tasks completed yet"
+            [t.title for t in completed]) if completed else "None"
 
         pending = db.query(Task).filter(
             Task.user_id == current_user.id,
             Task.status != TaskStatus.completed
         ).all()
         pending_str = ", ".join(
-            [t.title for t in pending]) if pending else "No pending tasks"
+            [t.title for t in pending]) if pending else "None"
 
-        feedback = f"""Daily Check-in Summary - {current_user.username}
-
-Productivity Score: {input.productivity_score}/10
-
-Completed Tasks: {completed_str}
-Pending Tasks: {pending_str}
-
-Journal Entry: {input.journal_text[:200]}
-
-Feedback: 
-{'Good progress today.' if len(completed) > 0 else 'Try to complete at least one task today.'}
-{'You have pending tasks. Focus on completing them tomorrow.' if len(pending) > 0 else 'All tasks completed. Excellent work.'}
-
-Tip: {'Start with your hardest task tomorrow morning.' if len(pending) > 0 else 'Take time to plan for tomorrow.'}"""
+        feedback = f"""Check-in for {current_user.username}
+Score: {input.productivity_score}/10
+Completed: {completed_str}
+Pending: {pending_str}
+Journal: {input.journal_text[:100]}
+{'Good progress' if len(completed) > 0 else 'Try to complete more tasks'}"""
 
         return {
-            "message": "Daily check-in complete",
+            "message": "Check-in complete",
             "completed_tasks": completed_str,
             "pending_tasks": pending_str,
             "ai_feedback": feedback
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/suggest-next-actions")
@@ -254,22 +221,18 @@ def ai_suggest_actions(
         ).order_by(Task.priority).all()
 
         if pending:
-            suggestions = f"Based on your current progress: {input.todays_journal}\n\n"
-            suggestions += "Top 3 Actions for you:\n"
+            suggestions = "Top 3 actions:\n"
             for i, task in enumerate(pending[:3], 1):
-                priority_flag = "[HIGH]" if task.priority.value == "high" else "[MEDIUM]" if task.priority.value == "medium" else "[LOW]"
-                suggestions += f"{i}. {priority_flag} {task.title}\n"
-                if task.description:
-                    suggestions += f"   {task.description[:100]}\n"
+                suggestions += f"{i}. {task.title}\n"
         else:
-            suggestions = "No pending tasks. Great job. Consider creating a new weekly plan."
+            suggestions = "No pending tasks. Great job!"
 
         return {
             "pending_tasks_count": len(pending),
             "ai_suggestions": suggestions
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/weekly-summary")
@@ -278,17 +241,8 @@ def ai_weekly_summary(
     db: Session = Depends(get_db)
 ):
     try:
-        today = date.today()
-        start_of_week = today - timedelta(days=today.weekday())
-        end_of_week = start_of_week + timedelta(days=6)
-
-        tasks = db.query(Task).filter(
-            Task.user_id == current_user.id
-        ).all()
-
-        completed_tasks = [
-            t for t in tasks if t.status == TaskStatus.completed]
-        pending_tasks = [t for t in tasks if t.status != TaskStatus.completed]
+        tasks = db.query(Task).filter(Task.user_id == current_user.id).all()
+        completed = [t for t in tasks if t.status == TaskStatus.completed]
 
         journals = db.query(Journal).filter(
             Journal.user_id == current_user.id
@@ -297,55 +251,18 @@ def ai_weekly_summary(
         scores = [j.productivity_score for j in journals if j.productivity_score]
         avg_score = round(sum(scores) / len(scores), 1) if scores else 0
 
-        active_plan = db.query(WeeklyPlan).filter(
-            WeeklyPlan.user_id == current_user.id,
-            WeeklyPlan.status == PlanStatus.active
-        ).first()
-
-        summary = f"Weekly Performance Summary - {current_user.username}\n"
-        summary += f"Week of {start_of_week} to {end_of_week}\n"
-        summary += "=" * 40 + "\n\n"
-
-        summary += "Overall Statistics:\n"
-        summary += f"  - Total Tasks: {len(tasks)}\n"
-        summary += f"  - Completed: {len(completed_tasks)}\n"
-        summary += f"  - Pending: {len(pending_tasks)}\n"
-        summary += f"  - Completion Rate: {round(len(completed_tasks)/len(tasks)*100, 1) if tasks else 0}%\n"
-        summary += f"  - Average Productivity Score: {avg_score}/10\n\n"
-
-        summary += f"Journal Entries: {len(journals)}\n\n"
-
-        if active_plan:
-            summary += "Current Weekly Goal:\n"
-            summary += f"  {active_plan.goal_summary[:200]}\n\n"
-
-        if len(completed_tasks) > 0:
-            summary += "Top Completed Tasks:\n"
-            for task in completed_tasks[:3]:
-                summary += f"  - {task.title}\n"
-            summary += "\n"
-
-        if len(pending_tasks) > 0:
-            summary += "Remaining Tasks:\n"
-            for task in pending_tasks[:3]:
-                summary += f"  - {task.title}\n"
-            summary += "\n"
-
-        summary += "Recommendation:\n"
-        if len(completed_tasks) > len(pending_tasks):
-            summary += "  Good progress this week. Use momentum to finish remaining tasks."
-        elif avg_score > 7:
-            summary += "  High productivity week. Keep up the excellent work."
-        else:
-            summary += "  Set smaller, achievable daily goals to improve productivity next week."
+        summary = f"Weekly Summary for {current_user.username}\n"
+        summary += f"Tasks completed: {len(completed)}/{len(tasks)}\n"
+        summary += f"Average score: {avg_score}/10\n"
+        summary += f"Journal entries: {len(journals)}\n"
 
         return {
-            "tasks_completed": len(completed_tasks),
+            "tasks_completed": len(completed),
             "total_tasks": len(tasks),
-            "completion_rate": round(len(completed_tasks)/len(tasks)*100, 1) if tasks else 0,
+            "completion_rate": round(len(completed)/len(tasks)*100, 1) if tasks else 0,
             "average_productivity_score": avg_score,
             "journal_entries": len(journals),
             "ai_summary": summary
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
