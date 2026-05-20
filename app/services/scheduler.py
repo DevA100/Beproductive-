@@ -6,17 +6,13 @@ from app.models.user import User
 from app.models.task import Task, TaskStatus
 from app.models.weekly_plan import WeeklyPlan, PlanStatus
 from app.models.journal import Journal
-from app.services.email_service import send_daily_reminder, send_weekly_summary_email
+from app.services.email_service import send_daily_reminder, send_weekly_summary_email, send_email
 from app.services.ai_coach import weekly_summary
 from datetime import datetime, date
 import logging
 
 logger = logging.getLogger(__name__)
 scheduler = AsyncIOScheduler()
-
-# -----------------------------------------------
-# JOB 1: Every morning at 7AM — send daily reminder
-# -----------------------------------------------
 
 
 async def send_morning_reminders():
@@ -32,14 +28,12 @@ async def send_morning_reminders():
                 ).all()
                 task_titles = [t.title for t in pending_tasks]
 
-                # Send email
                 await send_daily_reminder(
                     to_email=user.email,
                     username=user.username,
                     tasks=task_titles
                 )
 
-                # Send WhatsApp if phone number exists
                 if user.phone_number:
                     from app.services.whatsapp_service import send_whatsapp_daily_reminder
                     await send_whatsapp_daily_reminder(
@@ -54,10 +48,6 @@ async def send_morning_reminders():
     finally:
         db.close()
 
-# -----------------------------------------------
-# JOB 2: Every Sunday at 9PM — archive week + send summary
-# -----------------------------------------------
-
 
 async def weekly_archive_and_summary():
     logger.info("Running weekly archive job...")
@@ -66,7 +56,6 @@ async def weekly_archive_and_summary():
         users = db.query(User).filter(User.is_active == True).all()
         for user in users:
             try:
-                # Archive current active plan
                 active_plan = db.query(WeeklyPlan).filter(
                     WeeklyPlan.user_id == user.id,
                     WeeklyPlan.status == PlanStatus.active
@@ -75,7 +64,6 @@ async def weekly_archive_and_summary():
                     active_plan.status = PlanStatus.archived
                     db.commit()
 
-                # Get completed tasks
                 completed = db.query(Task).filter(
                     Task.user_id == user.id,
                     Task.status == TaskStatus.completed
@@ -83,7 +71,6 @@ async def weekly_archive_and_summary():
                 completed_str = ", ".join(
                     [t.title for t in completed]) if completed else "No completed tasks"
 
-                # Get journal entries
                 journals = db.query(Journal).filter(
                     Journal.user_id == user.id
                 ).order_by(Journal.entry_date.desc()).limit(7).all()
@@ -98,7 +85,6 @@ async def weekly_archive_and_summary():
                 avg_score = round(sum(scores) / len(scores),
                                   1) if scores else 0
 
-                # Generate AI summary
                 summary = weekly_summary(
                     username=user.username,
                     completed_tasks=completed_str,
@@ -106,7 +92,6 @@ async def weekly_archive_and_summary():
                     avg_score=avg_score
                 )
 
-                # Send email
                 await send_weekly_summary_email(
                     to_email=user.email,
                     username=user.username,
@@ -115,7 +100,6 @@ async def weekly_archive_and_summary():
                     tasks_completed=len(completed)
                 )
 
-                # Send WhatsApp if phone number exists
                 if user.phone_number:
                     from app.services.whatsapp_service import send_whatsapp_weekly_summary
                     await send_whatsapp_weekly_summary(
@@ -132,10 +116,6 @@ async def weekly_archive_and_summary():
     finally:
         db.close()
 
-# -----------------------------------------------
-# JOB 3: Every Monday at 8AM — remind users to create new plan
-# -----------------------------------------------
-
 
 async def monday_new_plan_reminder():
     logger.info("Running Monday new plan reminder...")
@@ -151,14 +131,13 @@ async def monday_new_plan_reminder():
                 ).first()
 
                 if not existing_plan:
-                    from app.services.email_service import send_email
                     await send_email(
                         to_email=user.email,
-                        subject="📅 Start your week strong — Create your weekly plan!",
+                        subject="Start your week strong - Create your weekly plan",
                         body=f"""
-Hey {user.username}! 💪
+Hey {user.username}!
 
-A new week has started and you haven't created your weekly plan yet!
+A new week has started and you haven't created your weekly plan yet.
 
 Here's what to do:
 1. Log in to BeProductive
@@ -166,18 +145,17 @@ Here's what to do:
 3. Add your tasks for the week
 4. Let the AI coach generate suggestions
 
-Don't let Monday slip away — plan it now!
+Don't let Monday slip away - plan it now!
 
 Your BeProductive AI Coach
                         """
                     )
 
-                    # Send WhatsApp reminder too
                     if user.phone_number:
                         from app.services.whatsapp_service import send_whatsapp_message
                         await send_whatsapp_message(
                             to_phone=user.phone_number,
-                            message=f"📅 Hey {user.username}! A new week has started. Don't forget to create your weekly plan on BeProductive! 💪"
+                            message=f"Hey {user.username}! A new week has started. Don't forget to create your weekly plan on BeProductive!"
                         )
 
                     logger.info(f"Monday reminder sent to {user.email}")
@@ -186,13 +164,8 @@ Your BeProductive AI Coach
     finally:
         db.close()
 
-# -----------------------------------------------
-# Register all jobs
-# -----------------------------------------------
-
 
 def start_scheduler():
-    # Every day at 7:00 AM
     scheduler.add_job(
         send_morning_reminders,
         CronTrigger(hour=7, minute=0),
@@ -200,7 +173,6 @@ def start_scheduler():
         replace_existing=True
     )
 
-    # Every Sunday at 9:00 PM
     scheduler.add_job(
         weekly_archive_and_summary,
         CronTrigger(day_of_week="sun", hour=21, minute=0),
@@ -208,7 +180,6 @@ def start_scheduler():
         replace_existing=True
     )
 
-    # Every Monday at 8:00 AM
     scheduler.add_job(
         monday_new_plan_reminder,
         CronTrigger(day_of_week="mon", hour=8, minute=0),
@@ -217,4 +188,4 @@ def start_scheduler():
     )
 
     scheduler.start()
-    print("✅ Scheduler started — jobs registered!")
+    print("Scheduler started - jobs registered!")

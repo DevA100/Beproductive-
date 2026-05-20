@@ -9,8 +9,10 @@ logger = logging.getLogger(__name__)
 
 async def send_email(to_email: str, subject: str, body: str):
     try:
+        logger.info(f"Attempting to send email to {to_email}")
+
         message = MIMEMultipart("alternative")
-        message["From"] = f"BeProductive AI <{settings.MAIL_FROM}>"
+        message["From"] = settings.MAIL_FROM
         message["To"] = to_email
         message["Subject"] = subject
 
@@ -22,13 +24,13 @@ async def send_email(to_email: str, subject: str, body: str):
         html_body = f"""
         <html>
           <body style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px;">
-            <div style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); padding: 20px; border-radius: 10px 10px 0 0;">
+            <div style="background: #3b82f6; padding: 20px; border-radius: 10px 10px 0 0;">
               <h1 style="color: white; margin: 0;">BeProductive</h1>
             </div>
             <div style="background: #f9f9f9; padding: 20px; border-radius: 0 0 10px 10px;">
               <div style="white-space: pre-wrap; font-family: Arial, sans-serif; font-size: 14px; color: #333;">{body}</div>
               <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-              <p style="color: #999; font-size: 12px;">Sent by BeProductive — Your personal productivity coach</p>
+              <p style="color: #999; font-size: 12px;">Sent by BeProductive - Your personal productivity coach</p>
             </div>
           </body>
         </html>
@@ -37,18 +39,54 @@ async def send_email(to_email: str, subject: str, body: str):
         html_part = MIMEText(html_body, "html")
         message.attach(html_part)
 
-        # Try sending with STARTTLS on port 587 instead of 465
-        await aiosmtplib.send(
-            message,
-            hostname="smtp.gmail.com",
-            port=587,
-            username=settings.MAIL_USERNAME,
-            password=settings.MAIL_PASSWORD,
-            use_tls=False,  # STARTTLS
-            start_tls=True
-        )
+        # Try multiple SMTP configurations
+        smtp_configs = [
+            # Gmail with STARTTLS (port 587)
+            {
+                "hostname": "smtp.gmail.com",
+                "port": 587,
+                "use_tls": False,
+                "start_tls": True
+            },
+            # Gmail with SSL (port 465)
+            {
+                "hostname": "smtp.gmail.com",
+                "port": 465,
+                "use_tls": True,
+                "start_tls": False
+            },
+            # Outlook/Hotmail
+            {
+                "hostname": "smtp-mail.outlook.com",
+                "port": 587,
+                "use_tls": False,
+                "start_tls": True
+            }
+        ]
 
-        logger.info(f"Email sent successfully to {to_email}")
+        last_error = None
+        for config in smtp_configs:
+            try:
+                logger.info(
+                    f"Trying SMTP config: {config['hostname']}:{config['port']}")
+                await aiosmtplib.send(
+                    message,
+                    hostname=config["hostname"],
+                    port=config["port"],
+                    username=settings.MAIL_USERNAME,
+                    password=settings.MAIL_PASSWORD,
+                    use_tls=config["use_tls"],
+                    start_tls=config["start_tls"]
+                )
+                logger.info(
+                    f"Email sent successfully to {to_email} using {config['hostname']}")
+                return
+            except Exception as e:
+                last_error = e
+                logger.warning(f"Failed with {config['hostname']}: {str(e)}")
+                continue
+
+        raise last_error or Exception("All SMTP configurations failed")
 
     except Exception as e:
         logger.error(f"Failed to send email to {to_email}: {str(e)}")
@@ -56,11 +94,11 @@ async def send_email(to_email: str, subject: str, body: str):
 
 
 async def send_welcome_email(to_email: str, username: str):
-    subject = "Welcome to BeProductive!"
+    subject = "Welcome to BeProductive"
     body = f"""
 Hey {username}!
 
-Welcome to BeProductive — your AI-powered productivity coach!
+Welcome to BeProductive - your AI-powered productivity coach!
 
 Here's what you can do:
 - Create your weekly plan
@@ -77,9 +115,9 @@ Your BeProductive AI Coach
 
 
 async def send_daily_reminder(to_email: str, username: str, tasks: list):
-    subject = "Good Morning! Your tasks for today"
+    subject = "Good Morning - Your tasks for today"
     task_list = "\n".join(
-        [f"  - {t}" for t in tasks]) if tasks else "  - No tasks yet — create your plan!"
+        [f"  - {t}" for t in tasks]) if tasks else "  - No tasks yet - create your plan!"
     body = f"""
 Good morning, {username}!
 
@@ -111,5 +149,23 @@ AI Coach Feedback:
 Ready for another great week? Create your new plan now!
 
 Your BeProductive AI Coach
+    """
+    await send_email(to_email, subject, body)
+
+
+async def send_otp_email(to_email: str, username: str, otp: str):
+    subject = "Your Password Reset OTP - BeProductive"
+    body = f"""
+Hey {username}!
+
+You requested a password reset for your BeProductive account.
+
+Your OTP Code: {otp}
+
+This code expires in 10 minutes.
+
+If you didn't request this, ignore this email.
+
+Your BeProductive Team
     """
     await send_email(to_email, subject, body)

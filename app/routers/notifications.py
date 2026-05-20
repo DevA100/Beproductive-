@@ -18,7 +18,7 @@ async def send_welcome(current_user: User = Depends(get_current_user)):
         await send_welcome_email(to_email=current_user.email, username=current_user.username)
         if current_user.phone_number:
             await send_whatsapp_welcome(phone=current_user.phone_number, username=current_user.username)
-        return {"message": "Welcome notifications sent!", "whatsapp": bool(current_user.phone_number)}
+        return {"message": "Welcome notifications sent", "whatsapp": bool(current_user.phone_number)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -32,7 +32,7 @@ async def send_daily_reminder_endpoint(current_user: User = Depends(get_current_
         await send_daily_reminder(to_email=current_user.email, username=current_user.username, tasks=task_titles)
         if current_user.phone_number:
             await send_whatsapp_daily_reminder(phone=current_user.phone_number, username=current_user.username, tasks=task_titles)
-        return {"message": "Daily reminder sent!", "tasks_count": len(task_titles), "whatsapp": bool(current_user.phone_number)}
+        return {"message": "Daily reminder sent", "tasks_count": len(task_titles), "whatsapp": bool(current_user.phone_number)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -55,6 +55,6 @@ async def send_weekly_summary_endpoint(current_user: User = Depends(get_current_
         await send_weekly_summary_email(to_email=current_user.email, username=current_user.username, summary=summary, avg_score=avg_score, tasks_completed=len(completed))
         if current_user.phone_number:
             await send_whatsapp_weekly_summary(phone=current_user.phone_number, username=current_user.username, summary=summary, avg_score=avg_score, tasks_completed=len(completed))
-        return {"message": "Weekly summary sent!", "whatsapp": bool(current_user.phone_number)}
+        return {"message": "Weekly summary sent", "whatsapp": bool(current_user.phone_number)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

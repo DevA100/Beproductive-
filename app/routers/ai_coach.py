@@ -42,23 +42,37 @@ def ai_generate_weekly_plan(
         plan = generate_weekly_plan(
             username=current_user.username, goals=input.goals)
 
-        # Extract tasks from the AI response
+        # Extract tasks from the AI response (clean version without emojis)
         tasks = []
+
+        # Look for "Top 5 Tasks" section
         task_section = re.search(
-            r'TOP 5 TASKS.*?(?=📅|DAILY|$)', plan, re.DOTALL)
+            r'Top 5 Tasks for the Week[\s-]*\n(.*?)(?=\n\n|\nDaily Breakdown|\nFocus Tip|$)',
+            plan,
+            re.DOTALL | re.IGNORECASE
+        )
+
         if task_section:
-            task_lines = task_section.group().split('\n')
+            task_lines = task_section.group(1).split('\n')
             for line in task_lines:
-                match = re.match(r'\d+\.\s+(.+?)\s*-\s*(.+)', line.strip())
+                # Match patterns like "1. Task Name - Description" or "1. Task Name"
+                match = re.match(
+                    r'^\s*\d+\.\s+(.+?)(?:\s*-\s*(.+))?$', line.strip())
                 if match:
+                    title = match.group(1).strip()
+                    description = match.group(
+                        2).strip() if match.group(2) else ""
                     tasks.append({
-                        "title": match.group(1).strip(),
-                        "description": match.group(2).strip()
+                        "title": title[:100],
+                        "description": description[:200]
                     })
 
         # Extract goal summary
         goal_match = re.search(
-            r'WEEKLY GOAL[:\s]+(.+?)(?=📋|$)', plan, re.DOTALL)
+            r'Weekly Goal[\s-]*:?\s*(.+?)(?=\n\n|\nTop 5|\n$)',
+            plan,
+            re.DOTALL | re.IGNORECASE
+        )
         goal_summary = goal_match.group(1).strip(
         )[:300] if goal_match else input.goals[:300]
 
@@ -66,8 +80,8 @@ def ai_generate_weekly_plan(
             "message": "Weekly plan generated successfully",
             "ai_plan": plan,
             "goal_summary": goal_summary,
-            "suggested_tasks": tasks,
-            "tip": "Click 'Use This Plan' to auto-create your plan with tasks!"
+            "suggested_tasks": tasks[:5],  # Limit to 5 tasks
+            "tip": "Click 'Use This Plan' to auto-create your plan with tasks"
         }
     except Exception as e:
         raise HTTPException(

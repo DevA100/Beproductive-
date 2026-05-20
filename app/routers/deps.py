@@ -19,7 +19,6 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     return user
 
 
-# /me router
 router = APIRouter(prefix="/users", tags=["Users"])
 
 
@@ -29,6 +28,7 @@ def get_me(current_user: User = Depends(get_current_user)):
         "id": current_user.id,
         "email": current_user.email,
         "username": current_user.username,
+        "phone_number": current_user.phone_number,  # Added this
         "is_active": current_user.is_active,
         "created_at": current_user.created_at
     }
@@ -47,4 +47,41 @@ def update_phone(
     current_user.phone_number = data.phone_number
     db.commit()
     db.refresh(current_user)
-    return {"message": "Phone updated!", "phone_number": current_user.phone_number}
+    return {"message": "Phone updated", "phone_number": current_user.phone_number}
+
+
+class UpdateProfile(BaseModel):
+    username: str = None
+    email: str = None
+
+
+@router.patch("/me")
+def update_profile(
+    data: UpdateProfile,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if data.username:
+        # Check if username is taken
+        existing = db.query(User).filter(
+            User.username == data.username,
+            User.id != current_user.id
+        ).first()
+        if existing:
+            raise HTTPException(
+                status_code=400, detail="Username already taken")
+        current_user.username = data.username
+
+    if data.email:
+        existing = db.query(User).filter(
+            User.email == data.email,
+            User.id != current_user.id
+        ).first()
+        if existing:
+            raise HTTPException(
+                status_code=400, detail="Email already registered")
+        current_user.email = data.email
+
+    db.commit()
+    db.refresh(current_user)
+    return {"message": "Profile updated", "user": current_user}

@@ -9,7 +9,7 @@ from app.models.weekly_plan import WeeklyPlan
 def generate_weekly_export(user_id: int, db: Session) -> BytesIO:
     output = BytesIO()
 
-    # --- Tasks Sheet ---
+    # Tasks Sheet
     tasks = db.query(Task).filter(Task.user_id == user_id).all()
     tasks_data = [{
         "Title": t.title,
@@ -20,7 +20,7 @@ def generate_weekly_export(user_id: int, db: Session) -> BytesIO:
         "AI Generated": "Yes" if t.is_ai_generated else "No"
     } for t in tasks] if tasks else [{"Title": "No tasks yet", "Description": "", "Status": "", "Priority": "", "Due Date": "", "AI Generated": ""}]
 
-    # --- Journal Sheet ---
+    # Journal Sheet
     journals = db.query(Journal).filter(Journal.user_id ==
                                         user_id).order_by(Journal.entry_date.desc()).all()
     journal_data = [{
@@ -31,7 +31,7 @@ def generate_weekly_export(user_id: int, db: Session) -> BytesIO:
         "Challenges": j.challenges or ""
     } for j in journals] if journals else [{"Date": "No entries", "Journal Entry": "", "Productivity Score": 0, "Wins": "", "Challenges": ""}]
 
-    # --- Weekly Plans Sheet ---
+    # Weekly Plans Sheet
     plans = db.query(WeeklyPlan).filter(WeeklyPlan.user_id ==
                                         user_id).order_by(WeeklyPlan.week_start.desc()).all()
     plans_data = [{
@@ -41,7 +41,7 @@ def generate_weekly_export(user_id: int, db: Session) -> BytesIO:
         "Status": p.status.value
     } for p in plans] if plans else [{"Week Start": "No plans yet", "Week End": "", "Goal Summary": "", "Status": ""}]
 
-    # --- Productivity Summary Sheet ---
+    # Productivity Summary Sheet
     scores = [j.productivity_score for j in journals if j.productivity_score]
     avg_score = round(sum(scores) / len(scores), 1) if scores else 0
     completed_tasks = [t for t in tasks if t.status.value == "completed"]
@@ -55,16 +55,16 @@ def generate_weekly_export(user_id: int, db: Session) -> BytesIO:
         "Total Weekly Plans": len(plans)
     }]
 
-    # --- Write to Excel with styling ---
+    # Write to Excel with styling
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         pd.DataFrame(summary_data).to_excel(
-            writer, sheet_name="📊 Summary", index=False)
+            writer, sheet_name="Summary", index=False)
         pd.DataFrame(tasks_data).to_excel(
-            writer, sheet_name="✅ Tasks", index=False)
+            writer, sheet_name="Tasks", index=False)
         pd.DataFrame(journal_data).to_excel(
-            writer, sheet_name="📝 Journal", index=False)
+            writer, sheet_name="Journal", index=False)
         pd.DataFrame(plans_data).to_excel(
-            writer, sheet_name="📅 Weekly Plans", index=False)
+            writer, sheet_name="Weekly Plans", index=False)
 
         # Auto-size columns for all sheets
         for sheet_name in writer.sheets:
