@@ -15,7 +15,10 @@ API.interceptors.request.use((config) => {
 API.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    // Skip redirect for login endpoint
+    const isLoginEndpoint = error.config?.url?.includes("/auth/login");
+
+    if (error.response?.status === 401 && !isLoginEndpoint) {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
       window.location.href = "/login";
@@ -26,7 +29,15 @@ API.interceptors.response.use(
 
 // Auth
 export const signup = (data) => API.post("/auth/signup", data);
-export const login = (data) => API.post("/auth/login", data);
+export const login = async (data) => {
+  try {
+    const response = await API.post("/auth/login", data);
+    return response;
+  } catch (error) {
+    console.error("Login error:", error.response?.data || error.message);
+    throw error;
+  }
+};
 export const getMe = () => API.get("/users/me");
 export const forgotPassword = (email) =>
   API.post("/auth/forgot-password", { email });

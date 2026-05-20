@@ -49,29 +49,8 @@ p { color: var(--text-secondary); }
 
 a { color: var(--blue-light); text-decoration: none; }
 
-input, textarea, select {
-  font-family: inherit;
-  font-size: 14px;
-  color: var(--text-primary) !important;
-  background: var(--bg-elevated) !important;
-  border: 1px solid var(--border) !important;
-  outline: none;
-  transition: border-color 0.2s;
-}
-
-input:focus, textarea:focus, select:focus {
-  border-color: var(--blue-primary) !important;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1) !important;
-}
-
-input::placeholder, textarea::placeholder {
-  color: var(--text-muted) !important;
-}
-
-option {
-  background: var(--bg-surface);
-  color: var(--text-primary);
-}
+/* Remove global input overrides - let components handle their own styling */
+/* Only keep basic focus styles without background/color overrides */
 
 button { font-family: inherit; cursor: pointer; }
 

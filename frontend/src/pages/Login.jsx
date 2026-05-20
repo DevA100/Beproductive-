@@ -4,6 +4,40 @@ import { login } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
 
+// Logo Component embedded directly
+const FullLogo = ({ size = "default", variant = "light" }) => {
+  const dimensions = {
+    small: { width: 120, height: 32 },
+    default: { width: 160, height: 40 },
+    large: { width: 200, height: 48 },
+  };
+
+  const dim = dimensions[size] || dimensions.default;
+  const textColor = variant === "dark" ? "#1e293b" : "#f8fafc";
+  const iconColor = "#3b82f6";
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+      <svg width={dim.height} height={dim.height} viewBox="0 0 40 40" fill="none">
+        <rect width="40" height="40" rx="10" fill={iconColor} />
+        <path d="M13 20L18 25L27 16" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+        <circle cx="13" cy="20" r="2" fill="white"/>
+        <circle cx="18" cy="25" r="2" fill="white"/>
+        <circle cx="27" cy="16" r="2" fill="white"/>
+        <path d="M9 31L31 9" stroke="white" strokeWidth="2" strokeLinecap="round" strokeOpacity="0.2"/>
+      </svg>
+      <span style={{ 
+        fontSize: dim.height * 0.6, 
+        fontWeight: 700, 
+        color: textColor,
+        letterSpacing: "-0.5px"
+      }}>
+        BeProductive
+      </span>
+    </div>
+  );
+};
+
 export default function Login() {
   const [form, setForm] = useState({ email_or_username: "", password: "" });
   const [loading, setLoading] = useState(false);
@@ -13,14 +47,72 @@ export default function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validate inputs
+    if (!form.email_or_username.trim()) {
+      toast.error("Please enter your email or username");
+      return;
+    }
+    if (!form.password) {
+      toast.error("Please enter your password");
+      return;
+    }
+    
     setLoading(true);
+    
     try {
+      console.log("Attempting login with:", { 
+        email_or_username: form.email_or_username, 
+        password: "***" 
+      });
+      
       const res = await login(form);
-      loginUser(res.data.access_token);
-      toast.success("Welcome back");
+      console.log("Login response:", res);
+      
+      // Handle both response formats
+      const token = res.data?.access_token || res.access_token;
+      if (!token) {
+        throw new Error("No access token received");
+      }
+      
+      loginUser(token);
+      toast.success("Welcome back!");
       navigate("/dashboard");
     } catch (err) {
-      toast.error(err.response?.data?.detail || "Login failed");
+      console.log("=== ERROR DEBUG ===");
+      console.log("Error object:", err);
+      console.log("Error response:", err.response);
+      console.log("Error status:", err.response?.status);
+      console.log("Error data:", err.response?.data);
+      console.log("Error message:", err.message);
+      console.log("===================");
+      
+      // Detailed error handling
+      let errorMessage = "Login failed. Please try again.";
+      
+      if (err.response) {
+        // Server responded with error status
+        if (err.response.status === 401) {
+          errorMessage = "Invalid email/username or password. Please try again.";
+        } else if (err.response.status === 404) {
+          errorMessage = "Account not found. Please check your credentials.";
+        } else if (err.response.status === 400) {
+          errorMessage = err.response.data?.detail || "Invalid request format.";
+        } else if (err.response.status === 500) {
+          errorMessage = "Server error. Please try again later.";
+        } else if (err.response.data?.detail) {
+          errorMessage = err.response.data.detail;
+        }
+      } else if (err.request) {
+        // Request made but no response
+        errorMessage = "Network error. Please check your internet connection.";
+      } else {
+        // Something else happened
+        errorMessage = err.message || "An unexpected error occurred.";
+      }
+      
+      // Show error toast
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -29,10 +121,10 @@ export default function Login() {
   return (
     <div style={styles.container}>
       <div style={styles.card}>
-        <div style={styles.logo}>
-          <span style={styles.logoIcon}>⚡</span>
-          <span>BeProductive</span>
+        <div style={styles.logoContainer}>
+          <FullLogo size="default" variant="dark" />
         </div>
+        
         <h2 style={styles.title}>Welcome back</h2>
         <p style={styles.subtitle}>Sign in to continue</p>
         
@@ -53,7 +145,7 @@ export default function Login() {
             <label style={styles.label}>Password</label>
             <div style={styles.passwordWrapper}>
               <input
-                style={styles.passwordInput}
+                style={styles.input}
                 type={showPassword ? "text" : "password"}
                 placeholder="Enter your password"
                 value={form.password}
@@ -123,44 +215,39 @@ export default function Login() {
 const styles = {
   container: {
     minHeight: "100vh",
-    background: "#06080f",
+    background: "linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     padding: "20px",
   },
   card: {
-    background: "#0d1117",
-    border: "1px solid #1e2230",
-    borderRadius: "16px",
-    padding: "40px",
+    background: "#ffffff",
+    border: "1px solid #e2e8f0",
+    borderRadius: "20px",
+    padding: "48px 40px",
     width: "100%",
     maxWidth: "440px",
-    boxShadow: "0 8px 32px rgba(0, 0, 0, 0.4)",
+    boxShadow: "0 20px 40px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.1)",
   },
-  logo: {
+  logoContainer: {
     display: "flex",
-    alignItems: "center",
-    gap: "8px",
-    fontSize: "20px",
-    fontWeight: "700",
-    color: "#3b82f6",
+    justifyContent: "center",
     marginBottom: "32px",
-  },
-  logoIcon: {
-    fontSize: "24px",
   },
   title: {
     fontSize: "28px",
     fontWeight: "700",
-    color: "#f8fafc",
+    color: "#1e293b",
     margin: "0 0 8px 0",
+    textAlign: "center",
     letterSpacing: "-0.5px",
   },
   subtitle: {
     fontSize: "14px",
-    color: "#94a3b8",
+    color: "#64748b",
     margin: "0 0 32px 0",
+    textAlign: "center",
   },
   inputGroup: {
     marginBottom: "20px",
@@ -168,37 +255,25 @@ const styles = {
   label: {
     display: "block",
     fontSize: "13px",
-    fontWeight: "500",
-    color: "#94a3b8",
+    fontWeight: "600",
+    color: "#475569",
     marginBottom: "8px",
     letterSpacing: "0.3px",
   },
   input: {
     width: "100%",
     padding: "12px 14px",
-    background: "#111827",
-    border: "1px solid #1e293b",
-    borderRadius: "8px",
+    background: "#f0f9ff",
+    border: "1px solid #bae6fd",
+    borderRadius: "10px",
     fontSize: "14px",
-    color: "#f8fafc",
+    color: "#1e293b",
     outline: "none",
-    transition: "border-color 0.2s",
+    transition: "all 0.2s",
     boxSizing: "border-box",
   },
   passwordWrapper: {
     position: "relative",
-  },
-  passwordInput: {
-    width: "100%",
-    padding: "12px 40px 12px 14px",
-    background: "#111827",
-    border: "1px solid #1e293b",
-    borderRadius: "8px",
-    fontSize: "14px",
-    color: "#f8fafc",
-    outline: "none",
-    transition: "border-color 0.2s",
-    boxSizing: "border-box",
   },
   eyeBtn: {
     position: "absolute",
@@ -233,7 +308,7 @@ const styles = {
     background: "#3b82f6",
     color: "white",
     border: "none",
-    borderRadius: "8px",
+    borderRadius: "10px",
     fontSize: "14px",
     fontWeight: "600",
     cursor: "pointer",
@@ -264,7 +339,7 @@ const styles = {
   dividerLine: {
     flex: 1,
     height: "1px",
-    background: "#1e293b",
+    background: "#e2e8f0",
   },
   dividerText: {
     fontSize: "12px",
@@ -277,18 +352,18 @@ const styles = {
     padding: "12px",
     background: "transparent",
     color: "#3b82f6",
-    border: "1px solid #1e293b",
-    borderRadius: "8px",
+    border: "1px solid #e2e8f0",
+    borderRadius: "10px",
     fontSize: "14px",
     fontWeight: "500",
     textAlign: "center",
     textDecoration: "none",
-    transition: "border-color 0.2s, color 0.2s",
+    transition: "all 0.2s",
     boxSizing: "border-box",
   },
 };
 
-// Add this to your global CSS or index.css
+// Add global styles
 const styleSheet = document.createElement("style");
 styleSheet.textContent = `
   @keyframes spin {
@@ -296,16 +371,18 @@ styleSheet.textContent = `
   }
   input:focus {
     border-color: #3b82f6 !important;
+    background: #ffffff !important;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
   }
   button:hover:not(:disabled) {
     background: #2563eb !important;
   }
   .signup-button:hover {
     border-color: #3b82f6 !important;
-    color: #60a5fa !important;
+    background: #eff6ff !important;
   }
   .forgot-link:hover {
-    color: #60a5fa !important;
+    color: #2563eb !important;
   }
   .eye-btn:hover {
     opacity: 1 !important;

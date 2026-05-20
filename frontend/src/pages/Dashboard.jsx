@@ -19,10 +19,9 @@ export default function Dashboard() {
         try {
           const planRes = await getActivePlan();
           plan = planRes.data;
+          console.log("Active plan fetched:", plan);
         } catch (err) {
-          if (err.response?.status !== 404) {
-            console.error("Error fetching plan:", err);
-          }
+          console.log("No active plan found");
         }
 
         let journals = [];
@@ -47,7 +46,6 @@ export default function Dashboard() {
       } catch (err) {
         console.error("Dashboard fetch error:", err);
         setError("Failed to load dashboard data");
-        toast.error("Failed to load dashboard");
       } finally {
         setLoading(false);
       }
@@ -77,19 +75,48 @@ export default function Dashboard() {
     }
   };
 
+  const handleNavigateToPlanner = () => {
+    window.location.href = "/planner";
+  };
+
   const completedTasks = stats.tasks.filter((t) => t.status === "completed").length;
-  const inProgressTasks = stats.tasks.filter((t) => t.status === "in_progress").length;
   const pendingTasks = stats.tasks.filter((t) => t.status === "pending").length;
+  const inProgressTasks = stats.tasks.filter((t) => t.status === "in_progress").length;
   const completionRate = stats.tasks.length ? Math.round((completedTasks / stats.tasks.length) * 100) : 0;
   const avgScore = stats.journals.length
     ? (stats.journals.reduce((sum, j) => sum + (j.productivity_score || 0), 0) / stats.journals.length).toFixed(1)
     : 0;
 
   const statCards = [
-    { label: "Active Plan", value: stats.plan ? stats.plan.title || "Active" : "No Plan", color: "#3b82f6", bgColor: "rgba(59, 130, 246, 0.1)" },
-    { label: "Total Tasks", value: stats.tasks.length, color: "#8b5cf6", bgColor: "rgba(139, 92, 246, 0.1)" },
-    { label: "Completion Rate", value: `${completionRate}%`, color: "#10b981", bgColor: "rgba(16, 185, 129, 0.1)" },
-    { label: "Avg Productivity", value: `${avgScore}/10`, color: "#f59e0b", bgColor: "rgba(245, 158, 11, 0.1)" },
+    { 
+      label: "Active Plan", 
+      value: stats.plan ? "Active" : "No Plan",
+      subtitle: stats.plan ? stats.plan.title || "Weekly Plan" : "Create a plan",
+      color: stats.plan ? "#10b981" : "#94a3b8", 
+      bgColor: stats.plan ? "#ecfdf5" : "#f1f5f9",
+      showAction: !stats.plan
+    },
+    { 
+      label: "Pending Tasks", 
+      value: pendingTasks, 
+      subtitle: "Need attention",
+      color: "#f59e0b", 
+      bgColor: "#fffbeb" 
+    },
+    { 
+      label: "In Progress", 
+      value: inProgressTasks, 
+      subtitle: "Working on",
+      color: "#3b82f6", 
+      bgColor: "#eef2ff" 
+    },
+    { 
+      label: "Completed", 
+      value: completedTasks, 
+      subtitle: `${completionRate}% of total`,
+      color: "#10b981", 
+      bgColor: "#ecfdf5" 
+    },
   ];
 
   if (loading) {
@@ -115,7 +142,6 @@ export default function Dashboard() {
 
   return (
     <div style={styles.container}>
-      {/* Header Section */}
       <div style={styles.header}>
         <div style={styles.userInfo}>
           <div style={styles.avatarContainer}>
@@ -142,56 +168,40 @@ export default function Dashboard() {
         </button>
       </div>
 
-      {/* Stats Grid */}
       <div style={styles.statsGrid}>
         {statCards.map((card, index) => (
-          <div key={index} style={{ ...styles.statCard, backgroundColor: card.bgColor, borderBottom: `3px solid ${card.color}` }}>
+          <div 
+            key={index} 
+            style={{ ...styles.statCard, backgroundColor: card.bgColor, borderBottom: `3px solid ${card.color}` }}
+            onClick={card.showAction ? handleNavigateToPlanner : undefined}
+          >
             <div style={styles.statHeader}>
-              <span style={{ ...styles.statValue, color: card.color }}>{card.value}</span>
+              <span style={styles.statLabel}>{card.label}</span>
             </div>
-            <div style={styles.statLabel}>{card.label}</div>
+            <div style={{ ...styles.statValue, color: card.color }}>{card.value}</div>
+            <div style={styles.statSubtitle}>{card.subtitle}</div>
+            {card.showAction && (
+              <div style={styles.statAction}>Click to create plan</div>
+            )}
           </div>
         ))}
       </div>
 
-      {/* Task Progress Section */}
-      {stats.plan && stats.tasks.length > 0 && (
+      {stats.tasks.length > 0 && (
         <div style={styles.section}>
           <div style={styles.sectionHeader}>
-            <h2 style={styles.sectionTitle}>Task Progress</h2>
-            <div style={styles.progressStats}>
-              <span style={styles.progressBadge}>Completed: {completedTasks}</span>
-              <span style={styles.progressBadge}>In Progress: {inProgressTasks}</span>
-              <span style={styles.progressBadge}>Pending: {pendingTasks}</span>
-            </div>
+            <h2 style={styles.sectionTitle}>Task List</h2>
+            <button onClick={handleNavigateToPlanner} style={styles.viewAllBtn}>
+              Manage Tasks
+            </button>
           </div>
-          <div style={styles.progressBarContainer}>
-            <div style={{ ...styles.progressBar, width: `${completionRate}%` }}></div>
-          </div>
-        </div>
-      )}
-
-      {/* Current Tasks Section */}
-      <div style={styles.section}>
-        <div style={styles.sectionHeader}>
-          <h2 style={styles.sectionTitle}>Current Tasks</h2>
-          {stats.plan && <span style={styles.planBadge}>Plan: {stats.plan.title || "Active Plan"}</span>}
-        </div>
-        {stats.tasks.length === 0 ? (
-          <div style={styles.emptyState}>
-            <p style={styles.emptyText}>No tasks yet</p>
-            <p style={styles.emptySubtext}>
-              {stats.plan ? "Start by adding tasks to your weekly plan" : "Create a weekly plan to get started"}
-            </p>
-          </div>
-        ) : (
           <div style={styles.taskList}>
-            {stats.tasks.slice(0, 5).map((task) => (
-              <div key={task.id} style={styles.taskItem}>
+            {stats.tasks.map((task, idx) => (
+              <div key={task.id || idx} style={styles.taskItem}>
                 <div style={styles.taskStatus}>
                   <div style={{
                     ...styles.statusDot,
-                    backgroundColor: task.status === "completed" ? "#10b981" : task.status === "in_progress" ? "#f59e0b" : "#64748b"
+                    backgroundColor: task.status === "completed" ? "#10b981" : task.status === "in_progress" ? "#3b82f6" : "#f59e0b"
                   }}></div>
                 </div>
                 <div style={styles.taskContent}>
@@ -201,34 +211,70 @@ export default function Dashboard() {
                 <div style={styles.taskMeta}>
                   <span style={{
                     ...styles.priorityBadge,
-                    backgroundColor: task.priority === "high" ? "rgba(239, 68, 68, 0.1)" : task.priority === "medium" ? "rgba(245, 158, 11, 0.1)" : "rgba(59, 130, 246, 0.1)",
-                    color: task.priority === "high" ? "#ef4444" : task.priority === "medium" ? "#f59e0b" : "#3b82f6"
+                    backgroundColor: task.priority === "high" ? "#fef2f2" : task.priority === "medium" ? "#fffbeb" : "#eff6ff",
+                    color: task.priority === "high" ? "#dc2626" : task.priority === "medium" ? "#d97706" : "#2563eb"
                   }}>
-                    {task.priority}
+                    {task.priority || "medium"}
                   </span>
-                  <span style={styles.taskStatusText}>{task.status}</span>
+                  <span style={{
+                    ...styles.statusBadge,
+                    backgroundColor: task.status === "completed" ? "#ecfdf5" : task.status === "in_progress" ? "#eef2ff" : "#fffbeb",
+                    color: task.status === "completed" ? "#10b981" : task.status === "in_progress" ? "#3b82f6" : "#f59e0b"
+                  }}>
+                    {task.status || "pending"}
+                  </span>
                 </div>
               </div>
             ))}
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* Recent Journals Section */}
+      {stats.tasks.length === 0 && stats.plan && (
+        <div style={styles.section}>
+          <div style={styles.emptyState}>
+            <p style={styles.emptyText}>No tasks yet</p>
+            <p style={styles.emptySubtext}>Add tasks to your weekly plan to get started</p>
+            <button onClick={handleNavigateToPlanner} style={styles.createPlanBtn}>
+              Add Tasks
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!stats.plan && (
+        <div style={styles.section}>
+          <div style={styles.emptyState}>
+            <p style={styles.emptyText}>No active plan</p>
+            <p style={styles.emptySubtext}>Create a weekly plan to start tracking your tasks</p>
+            <button onClick={handleNavigateToPlanner} style={styles.createPlanBtn}>
+              Create Weekly Plan
+            </button>
+          </div>
+        </div>
+      )}
+
       <div style={styles.section}>
         <div style={styles.sectionHeader}>
           <h2 style={styles.sectionTitle}>Recent Journal Entries</h2>
-          {stats.journals.length > 0 && <span style={styles.countBadge}>{stats.journals.length} entries</span>}
+          {stats.journals.length > 0 && (
+            <span style={styles.journalScoreSummary}>
+              Avg Score: {avgScore}/10
+            </span>
+          )}
         </div>
         {stats.journals.length === 0 ? (
           <div style={styles.emptyState}>
             <p style={styles.emptyText}>No journal entries yet</p>
             <p style={styles.emptySubtext}>Start documenting your journey</p>
+            <button onClick={() => window.location.href = "/journal"} style={styles.createPlanBtn}>
+              Write Journal Entry
+            </button>
           </div>
         ) : (
           <div style={styles.journalList}>
-            {stats.journals.slice(0, 5).map((journal) => (
-              <div key={journal.id} style={styles.journalItem}>
+            {stats.journals.slice(0, 3).map((journal, idx) => (
+              <div key={journal.id || idx} style={styles.journalItem}>
                 <div style={styles.journalHeader}>
                   <span style={styles.journalDate}>{journal.entry_date}</span>
                   <div style={styles.journalScore}>
@@ -237,8 +283,8 @@ export default function Dashboard() {
                   </div>
                 </div>
                 <p style={styles.journalText}>
-                  {journal.journal_text?.slice(0, 120) || "No content"}
-                  {journal.journal_text?.length > 120 && "..."}
+                  {journal.journal_text?.slice(0, 100) || "No content"}
+                  {journal.journal_text?.length > 100 && "..."}
                 </p>
               </div>
             ))}
@@ -255,7 +301,7 @@ const styles = {
     maxWidth: "1200px",
     margin: "0 auto",
     minHeight: "100vh",
-    background: "#06080f",
+    background: "#f8fafc",
   },
   loadingContainer: {
     display: "flex",
@@ -263,12 +309,12 @@ const styles = {
     alignItems: "center",
     justifyContent: "center",
     minHeight: "100vh",
-    background: "#06080f",
+    background: "#f8fafc",
   },
   spinner: {
     width: "40px",
     height: "40px",
-    border: "3px solid #1e293b",
+    border: "3px solid #e2e8f0",
     borderTop: "3px solid #3b82f6",
     borderRadius: "50%",
     animation: "spin 1s linear infinite",
@@ -284,13 +330,13 @@ const styles = {
     alignItems: "center",
     justifyContent: "center",
     minHeight: "100vh",
-    background: "#06080f",
+    background: "#f8fafc",
     padding: "24px",
   },
   errorTitle: {
     fontSize: "20px",
     fontWeight: "600",
-    color: "#f8fafc",
+    color: "#1e293b",
     margin: "0 0 8px 0",
   },
   errorMessage: {
@@ -314,7 +360,7 @@ const styles = {
     alignItems: "center",
     marginBottom: "32px",
     paddingBottom: "24px",
-    borderBottom: "1px solid #1e293b",
+    borderBottom: "1px solid #e2e8f0",
     flexWrap: "wrap",
     gap: "16px",
   },
@@ -338,7 +384,7 @@ const styles = {
     width: "100%",
     height: "100%",
     borderRadius: "50%",
-    background: "#1e293b",
+    background: "#e2e8f0",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -350,13 +396,13 @@ const styles = {
   greeting: {
     fontSize: "24px",
     fontWeight: "700",
-    color: "#f8fafc",
+    color: "#1e293b",
     margin: "0 0 4px 0",
     letterSpacing: "-0.5px",
   },
   subtitle: {
     fontSize: "14px",
-    color: "#94a3b8",
+    color: "#64748b",
     margin: "0",
   },
   exportBtn: {
@@ -364,9 +410,9 @@ const styles = {
     alignItems: "center",
     gap: "8px",
     padding: "10px 20px",
-    background: "#1e293b",
-    color: "#f8fafc",
-    border: "1px solid #334155",
+    background: "#ffffff",
+    color: "#1e293b",
+    border: "1px solid #e2e8f0",
     borderRadius: "8px",
     fontSize: "14px",
     fontWeight: "500",
@@ -384,30 +430,40 @@ const styles = {
     borderRadius: "12px",
     transition: "transform 0.2s, box-shadow 0.2s",
     cursor: "pointer",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
   },
   statHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: "12px",
-  },
-  statValue: {
-    fontSize: "32px",
-    fontWeight: "700",
+    marginBottom: "8px",
   },
   statLabel: {
     fontSize: "13px",
-    fontWeight: "500",
-    color: "#94a3b8",
+    fontWeight: "600",
+    color: "#64748b",
     textTransform: "uppercase",
     letterSpacing: "0.5px",
   },
+  statValue: {
+    fontSize: "36px",
+    fontWeight: "700",
+    marginBottom: "4px",
+  },
+  statSubtitle: {
+    fontSize: "12px",
+    color: "#94a3b8",
+  },
+  statAction: {
+    fontSize: "11px",
+    color: "#3b82f6",
+    marginTop: "8px",
+    fontWeight: "500",
+  },
   section: {
-    background: "#0d1117",
-    border: "1px solid #1e293b",
+    background: "#ffffff",
+    border: "1px solid #e2e8f0",
     borderRadius: "12px",
     padding: "24px",
     marginBottom: "24px",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
   },
   sectionHeader: {
     display: "flex",
@@ -420,47 +476,24 @@ const styles = {
   sectionTitle: {
     fontSize: "18px",
     fontWeight: "600",
-    color: "#f8fafc",
+    color: "#1e293b",
     margin: "0",
   },
-  planBadge: {
-    padding: "4px 12px",
-    background: "rgba(59, 130, 246, 0.1)",
+  viewAllBtn: {
+    padding: "6px 12px",
+    background: "#ffffff",
+    border: "1px solid #e2e8f0",
     borderRadius: "6px",
     fontSize: "12px",
     color: "#3b82f6",
+    cursor: "pointer",
   },
-  countBadge: {
+  journalScoreSummary: {
     padding: "4px 12px",
-    background: "#1e293b",
+    background: "#f1f5f9",
     borderRadius: "6px",
     fontSize: "12px",
-    color: "#94a3b8",
-  },
-  progressStats: {
-    display: "flex",
-    gap: "12px",
-    flexWrap: "wrap",
-  },
-  progressBadge: {
-    padding: "4px 10px",
-    background: "#1e293b",
-    borderRadius: "6px",
-    fontSize: "12px",
-    color: "#94a3b8",
-  },
-  progressBarContainer: {
-    width: "100%",
-    height: "6px",
-    background: "#1e293b",
-    borderRadius: "3px",
-    overflow: "hidden",
-  },
-  progressBar: {
-    height: "100%",
-    background: "#10b981",
-    borderRadius: "3px",
-    transition: "width 0.3s ease",
+    color: "#64748b",
   },
   taskList: {
     display: "flex",
@@ -472,8 +505,8 @@ const styles = {
     alignItems: "center",
     gap: "12px",
     padding: "16px",
-    background: "#111827",
-    border: "1px solid #1e293b",
+    background: "#f8fafc",
+    border: "1px solid #e2e8f0",
     borderRadius: "8px",
     transition: "border-color 0.2s",
   },
@@ -492,7 +525,7 @@ const styles = {
   taskTitle: {
     fontSize: "14px",
     fontWeight: "500",
-    color: "#f8fafc",
+    color: "#1e293b",
     marginBottom: "4px",
   },
   taskDescription: {
@@ -511,12 +544,11 @@ const styles = {
     fontWeight: "600",
     textTransform: "uppercase",
   },
-  taskStatusText: {
-    fontSize: "11px",
+  statusBadge: {
     padding: "4px 8px",
     borderRadius: "4px",
-    background: "#1e293b",
-    color: "#94a3b8",
+    fontSize: "11px",
+    fontWeight: "500",
     textTransform: "capitalize",
   },
   journalList: {
@@ -526,8 +558,8 @@ const styles = {
   },
   journalItem: {
     padding: "16px",
-    background: "#111827",
-    border: "1px solid #1e293b",
+    background: "#f8fafc",
+    border: "1px solid #e2e8f0",
     borderRadius: "8px",
     transition: "border-color 0.2s",
   },
@@ -558,7 +590,7 @@ const styles = {
   },
   journalText: {
     fontSize: "13px",
-    color: "#94a3b8",
+    color: "#475569",
     lineHeight: "1.5",
     margin: "0",
   },
@@ -569,13 +601,23 @@ const styles = {
   emptyText: {
     fontSize: "16px",
     fontWeight: "500",
-    color: "#f8fafc",
+    color: "#1e293b",
     margin: "0 0 8px 0",
   },
   emptySubtext: {
     fontSize: "13px",
     color: "#64748b",
-    margin: "0",
+    margin: "0 0 16px 0",
+  },
+  createPlanBtn: {
+    padding: "10px 20px",
+    background: "#3b82f6",
+    color: "white",
+    border: "none",
+    borderRadius: "8px",
+    fontSize: "14px",
+    fontWeight: "500",
+    cursor: "pointer",
   },
 };
 
@@ -585,12 +627,15 @@ styleSheet.textContent = `
     to { transform: rotate(360deg); }
   }
   button:hover {
-    background: #334155 !important;
-    border-color: #3b82f6 !important;
+    background: #f8fafc !important;
+    border-color: #cbd5e1 !important;
+  }
+  .create-plan-btn:hover {
+    background: #2563eb !important;
   }
   .stat-card:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
   }
   .task-item:hover {
     border-color: #3b82f6;
