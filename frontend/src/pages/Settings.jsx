@@ -1,25 +1,33 @@
 import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
-import { resetPassword, forgotPassword } from "../services/api";
+import { resetPassword, forgotPassword, updatePhone } from "../services/api";
 import toast from "react-hot-toast";
-import { updatePhone } from "../services/api";
 
 export default function Settings() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth(); // Add refreshUser
   const [step, setStep] = useState("idle"); // idle, otp_sent, resetting
   const [otpForm, setOtpForm] = useState({ otp: "", new_password: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [avatar, setAvatar] = useState(() => localStorage.getItem("avatar_" + user?.id) || null);
+  const [phone, setPhone] = useState(user?.phone_number || "");
+  const [editingPhone, setEditingPhone] = useState(false);
 
   const handleSendOTP = async () => {
+    if (!user?.email) {
+      toast.error("User email not found");
+      return;
+    }
+    
     setLoading(true);
     try {
       await forgotPassword(user.email);
       setStep("otp_sent");
       toast.success("OTP sent to your email");
-    } catch {
-      toast.error("Failed to send OTP");
+    } catch (err) {
+      console.error("OTP error:", err);
+      const errorMsg = err.response?.data?.detail || "Failed to send OTP. Please try again.";
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -27,15 +35,30 @@ export default function Settings() {
 
   const handleResetPassword = async (e) => {
     e.preventDefault();
-    if (otpForm.new_password.length < 6) return toast.error("Password must be at least 6 characters");
+    
+    if (otpForm.otp.length !== 6) {
+      toast.error("Please enter the complete 6-digit OTP");
+      return;
+    }
+    
+    if (otpForm.new_password.length < 6) {
+      toast.error("Password must be at least 6 characters");
+      return;
+    }
+    
     setLoading(true);
     try {
-      await resetPassword({ email: user.email, otp: otpForm.otp, new_password: otpForm.new_password });
+      await resetPassword({ 
+        email: user.email, 
+        otp: otpForm.otp, 
+        new_password: otpForm.new_password 
+      });
       toast.success("Password changed successfully");
       setStep("idle");
       setOtpForm({ otp: "", new_password: "" });
     } catch (err) {
-      toast.error(err.response?.data?.detail || "Invalid OTP");
+      const errorMsg = err.response?.data?.detail || "Invalid OTP. Please try again.";
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -44,7 +67,10 @@ export default function Settings() {
   const handleAvatarChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) return toast.error("Image must be under 2MB");
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Image must be under 2MB");
+      return;
+    }
     const reader = new FileReader();
     reader.onloadend = () => {
       const base64 = reader.result;
@@ -55,19 +81,26 @@ export default function Settings() {
     reader.readAsDataURL(file);
   };
 
-  const [phone, setPhone] = useState(user?.phone_number || "");
-  const [editingPhone, setEditingPhone] = useState(false);
-
   const handleSavePhone = async () => {
+    if (!phone) {
+      toast.error("Please enter a phone number");
+      return;
+    }
+    
     try {
       await updatePhone(phone);
+      
+      // Refresh user data to get updated phone number
+      await refreshUser();
+      
       toast.success("Phone number saved");
       setEditingPhone(false);
-    } catch {
-      toast.error("Failed to save phone");
+    } catch (err) {
+      console.error("Phone update error:", err);
+      toast.error(err.response?.data?.detail || "Failed to save phone number");
     }
   };
-  
+
   return (
     <div style={styles.container}>
       <h1 style={styles.title}>Settings</h1>
@@ -467,6 +500,9 @@ const styles = {
 // Add global styles
 const styleSheet = document.createElement("style");
 styleSheet.textContent = `
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
   input:focus {
     border-color: #3b82f6 !important;
     background: #ffffff !important;
