@@ -91,7 +91,7 @@ async def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(
         from app.services.email_service import send_email
         await send_email(
             to_email=request.email,
-            subject="🔐 Your Password Reset OTP — BeProductive",
+            subject=" Your Password Reset OTP — BeProductive",
             body=f"""
 Hey {user.username}!
 

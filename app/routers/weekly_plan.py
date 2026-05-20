@@ -1,5 +1,4 @@
 from typing import Optional
-from app.schemas.weekly_plan import WeeklyPlanUpdate
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
@@ -9,6 +8,8 @@ from app.routers.deps import get_current_user
 from app.models.user import User
 from typing import List
 from pydantic import BaseModel
+from datetime import date
+
 router = APIRouter(prefix="/plans", tags=["Weekly Plans"])
 
 
@@ -37,7 +38,6 @@ def create_plan(plan: WeeklyPlanCreate, db: Session = Depends(get_db), current_u
 
 @router.get("/", response_model=List[WeeklyPlanResponse])
 def get_my_plans(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    # Returns all plans — active + archived (full history)
     return db.query(WeeklyPlan).filter(
         WeeklyPlan.user_id == current_user.id
     ).order_by(WeeklyPlan.week_start.desc()).all()
@@ -57,7 +57,6 @@ def get_active_plan(db: Session = Depends(get_db), current_user: User = Depends(
 
 @router.get("/archived", response_model=List[WeeklyPlanResponse])
 def get_archived_plans(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    # Returns only archived plans — previous weeks history
     return db.query(WeeklyPlan).filter(
         WeeklyPlan.user_id == current_user.id,
         WeeklyPlan.status == PlanStatus.archived
@@ -79,6 +78,8 @@ def archive_plan(plan_id: int, db: Session = Depends(get_db), current_user: User
 
 
 class WeeklyPlanUpdateRequest(BaseModel):
+    week_start: Optional[date] = None
+    week_end: Optional[date] = None
     goal_summary: Optional[str] = None
 
 
@@ -90,8 +91,11 @@ def update_plan(plan_id: int, updates: WeeklyPlanUpdateRequest, db: Session = De
     ).first()
     if not plan:
         raise HTTPException(status_code=404, detail="Plan not found")
-    for key, value in updates.model_dump(exclude_unset=True).items():
+
+    update_data = updates.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
         setattr(plan, key, value)
+
     db.commit()
     db.refresh(plan)
     return plan
@@ -99,10 +103,25 @@ def update_plan(plan_id: int, updates: WeeklyPlanUpdateRequest, db: Session = De
 
 @router.delete("/{plan_id}")
 def delete_plan(plan_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    plan = db.query(WeeklyPlan).filter(WeeklyPlan.id == plan_id,
-                                       WeeklyPlan.user_id == current_user.id).first()
+    plan = db.query(WeeklyPlan).filter(
+        WeeklyPlan.id == plan_id,
+        WeeklyPlan.user_id == current_user.id
+    ).first()
+
     if not plan:
         raise HTTPException(status_code=404, detail="Plan not found")
+
+    # Delete all tasks associated with this plan
+    from app.models.task import Task
+    tasks = db.query(Task).filter(
+        Task.weekly_plan_id == plan_id,
+        Task.user_id == current_user.id
+    ).all()
+
+    for task in tasks:
+        db.delete(task)
+
     db.delete(plan)
     db.commit()
-    return {"message": "Plan deleted"}
+
+    return {"message": "Plan and all associated tasks deleted successfully"}
