@@ -1,5 +1,5 @@
-import brevo_python as brevo
-from brevo_python.rest import ApiException
+import sib_api_v3_sdk as brevo
+from sib_api_v3_sdk.rest import ApiException
 from app.core.config import settings
 import logging
 
