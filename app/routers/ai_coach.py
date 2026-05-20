@@ -29,7 +29,6 @@ class NextActionInput(BaseModel):
 
 
 class CreatePlanFromAIRequest(BaseModel):
-    ai_plan: str
     goal_summary: str
     suggested_tasks: List[dict]
 
@@ -44,43 +43,70 @@ def ai_generate_weekly_plan(
         plan = generate_weekly_plan(
             username=current_user.username, goals=input.goals)
 
-        # Extract tasks from the AI response
+        print(f"RAW AI PLAN:\n{plan}\n")
+
         tasks = []
+        lines = plan.split('\n')
+        in_task_section = False
 
-        task_section = re.search(
-            r'Top 5 Tasks for the Week[\s-]*\n(.*?)(?=\n\n|\nDaily Breakdown|\nFocus Tip|\*\*Daily Breakdown|$)',
-            plan,
-            re.DOTALL | re.IGNORECASE
-        )
+        for line in lines:
+            line_stripped = line.strip()
 
-        if task_section:
-            task_text = task_section.group(1)
-            for line in task_text.split('\n'):
-                clean_line = re.sub(r'\*\*', '', line.strip())
-                match = re.match(
-                    r'^\s*\d+\.\s+(.+?)(?:\s*-\s*(.+))?$', clean_line)
+            if 'Top 5 Tasks' in line_stripped or 'TOP 5 TASKS' in line_stripped:
+                in_task_section = True
+                continue
+
+            if in_task_section and ('Daily Breakdown' in line_stripped or 'Focus Tip' in line_stripped):
+                break
+
+            if in_task_section:
+                match = re.match(r'^\s*(\d+)\.\s+(.+)$', line_stripped)
                 if match:
-                    title = match.group(1).strip()
-                    description = match.group(
-                        2).strip() if match.group(2) else ""
-                    title = title[:100]
-                    description = description[:200] if description else ""
+                    task_text = match.group(2).strip()
+                    task_text = re.sub(r'\*\*', '', task_text)
+                    task_text = re.sub(r'__', '', task_text)
+
+                    if ' - ' in task_text:
+                        title, description = task_text.split(' - ', 1)
+                        title = title.strip()
+                        description = description.strip()
+                    else:
+                        title = task_text
+                        description = ""
+
+                    title = title.replace('*', '').replace('#', '').strip()
+                    description = description.replace(
+                        '*', '').replace('#', '').strip()
+
                     tasks.append({
-                        "title": title,
-                        "description": description
+                        "title": title[:100],
+                        "description": description[:200] if description else ""
                     })
 
-        # Extract goal summary
-        goal_match = re.search(
-            r'Weekly Goal[\s-]*:?\s*(.+?)(?=\n\n|\nTop 5|\*\*Top 5|\n$)',
-            plan,
-            re.DOTALL | re.IGNORECASE
-        )
-        if goal_match:
-            goal_summary = re.sub(
-                r'\*\*', '', goal_match.group(1).strip())[:300]
-        else:
-            goal_summary = input.goals[:300]
+        if not tasks:
+            all_matches = re.findall(r'(\d+)\.\s+([^\n]+)', plan)
+            for match in all_matches[:5]:
+                title = match[1].strip()
+                title = re.sub(r'\*\*', '', title)
+                title = re.sub(r'__', '', title)
+                tasks.append({
+                    "title": title[:100],
+                    "description": ""
+                })
+
+        goal_summary = input.goals[:300]
+        for line in lines:
+            if 'Weekly Goal' in line:
+                if ':' in line:
+                    goal_summary = line.split(':', 1)[1].strip()
+                else:
+                    goal_summary = line.replace('Weekly Goal', '').strip()
+                goal_summary = re.sub(r'\*\*', '', goal_summary)
+                goal_summary = re.sub(r'__', '', goal_summary)
+                goal_summary = goal_summary[:300]
+                break
+
+        print(f"Extracted {len(tasks)} tasks")
 
         return {
             "message": "Weekly plan generated successfully",
@@ -90,6 +116,7 @@ def ai_generate_weekly_plan(
             "tip": "Click 'Use This Plan' to auto-create your plan with tasks"
         }
     except Exception as e:
+        print(f"Error: {str(e)}")
         raise HTTPException(
             status_code=500, detail=f"AI service error: {str(e)}")
 
@@ -100,7 +127,6 @@ def create_plan_from_ai(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Create a weekly plan and tasks from AI-generated content"""
     try:
         today = date.today()
         week_start = today - timedelta(days=today.weekday())
@@ -175,9 +201,7 @@ def ai_daily_checkin(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """AI analyzes your day and gives feedback"""
     try:
-        today = date.today()
         completed = db.query(Task).filter(
             Task.user_id == current_user.id,
             Task.status == TaskStatus.completed
@@ -223,7 +247,6 @@ def ai_suggest_actions(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """AI suggests your next top 3 actions based on pending tasks"""
     try:
         pending = db.query(Task).filter(
             Task.user_id == current_user.id,
@@ -254,7 +277,6 @@ def ai_weekly_summary(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """AI generates your weekly performance summary"""
     try:
         today = date.today()
         start_of_week = today - timedelta(days=today.weekday())

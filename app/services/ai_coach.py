@@ -18,12 +18,12 @@ def get_ai_response(system_prompt: str, user_message: str) -> str:
 
 
 def generate_weekly_plan(username: str, goals: str) -> str:
-    system_prompt = """You are BeProductive AI, an expert productivity coach.
-Generate a clean, structured weekly plan WITHOUT any markdown formatting.
-Do NOT use asterisks, hashtags, or special characters for formatting.
-Use plain text with line breaks only.
+    system_prompt = """You are BeProductive AI.
+Generate a weekly plan in PURE PLAIN TEXT.
+ABSOLUTELY NO markdown, NO asterisks, NO hashtags, NO bold, NO italic.
+Use ONLY numbers, letters, spaces, and dashes.
 
-Format your response exactly like this:
+Format exactly like this:
 
 Weekly Goal: One sentence summary of the week's focus
 
@@ -45,25 +45,19 @@ Sunday: Rest and planning
 
 Focus Tip: One actionable tip
 
-Recommended Reading:
-1. Article Title - Why it helps (URL: actual-url-here)
-2. Article Title - Why it helps (URL: actual-url-here)
-3. Article Title - Why it helps (URL: actual-url-here)
-
-Do not use any markdown, bold, italic, or special characters."""
+No markdown. No special characters."""
 
     user_message = f"""
 User: {username}
 Goals this week: {goals}
 
-Generate a weekly plan following the exact format above. No markdown formatting.
+Generate a weekly plan following the exact format above. Use plain text only.
 """
 
     return get_ai_response(system_prompt, user_message)
 
 
 def weekly_summary(username: str, completed_tasks: str, archived_journals: str, avg_score: float) -> str:
-    """Generate a weekly summary using AI"""
     system_prompt = """You are BeProductive AI. Generate an insightful weekly summary
     for the user. Use plain text only, no markdown formatting.
     Keep it under 200 words."""
