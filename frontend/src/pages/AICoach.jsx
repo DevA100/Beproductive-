@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { generateWeeklyPlan, createPlanFromAI, dailyCheckin, suggestActions, weeklySummary } from "../services/api";
+import { generateWeeklyPlan, createPlanFromAI, dailyCheckin, suggestActions, weeklySummary, suggestArticles } from "../services/api";
 import toast from "react-hot-toast";
+import API from "../services/api";
 
 export default function AICoach() {
   const [activeTab, setActiveTab] = useState("plan");
@@ -9,6 +10,7 @@ export default function AICoach() {
   const [result, setResult] = useState("");
   const [generatedPlan, setGeneratedPlan] = useState(null);
   const [suggestedTasks, setSuggestedTasks] = useState([]);
+  const [suggestedArticles, setSuggestedArticles] = useState([]);
   const [goalSummary, setGoalSummary] = useState("");
   const [goals, setGoals] = useState("");
   const [checkinForm, setCheckinForm] = useState({ journal_text: "", productivity_score: 7 });
@@ -23,12 +25,31 @@ export default function AICoach() {
       setResult(res.data.ai_plan);
       setGeneratedPlan(res.data.ai_plan);
       setSuggestedTasks(res.data.suggested_tasks || []);
+      setSuggestedArticles(res.data.suggested_articles || []);
       setGoalSummary(res.data.goal_summary || goals);
       toast.success("Plan generated successfully");
+      
+      // If no articles were returned, fetch them separately
+      if (!res.data.suggested_articles || res.data.suggested_articles.length === 0) {
+        fetchArticles(res.data.goal_summary || goals, res.data.suggested_tasks);
+      }
     } catch { 
       toast.error("AI service failed. Please try again"); 
     } finally { 
       setLoading(false); 
+    }
+  };
+
+  const fetchArticles = async (goalSummary, tasks) => {
+    try {
+      const taskTitles = tasks.map(t => t.title);
+      const res = await suggestArticles({
+        goals: goalSummary,
+        task_titles: taskTitles
+      });
+      setSuggestedArticles(res.data.articles || []);
+    } catch (err) {
+      console.error("Failed to fetch articles:", err);
     }
   };
 
@@ -38,16 +59,83 @@ export default function AICoach() {
     setLoading(true);
     try {
       const res = await createPlanFromAI({
-        ai_plan: generatedPlan,
         goal_summary: goalSummary,
         suggested_tasks: suggestedTasks
       });
       
       toast.success(`Success! Created plan with ${res.data.tasks_created.length} tasks`);
-      navigate("/planner"); // Redirect to planner to see the created plan
+      navigate("/planner");
     } catch (err) {
       console.error("Failed to create plan:", err);
-      toast.error(err.response?.data?.detail || "Failed to create plan");
+      if (err.response?.status === 400 && err.response?.data?.detail?.includes("already have an active plan")) {
+        toast.error(
+          (t) => (
+            <div>
+              <span role="img" aria-label="warning" style={{ marginRight: 8 }}>⚠️</span>
+              <strong>You already have an active weekly plan!</strong>
+              <br />
+              Would you like to archive it and create a new one?
+              <div style={{ marginTop: 8 }}>
+                <button
+                  onClick={() => {
+                    toast.dismiss(t.id);
+                    handleForceCreatePlan();
+                  }}
+                  style={{
+                    background: "#f59e0b",
+                    color: "white",
+                    border: "none",
+                    padding: "6px 12px",
+                    borderRadius: 6,
+                    cursor: "pointer",
+                    marginRight: 8,
+                  }}
+                >
+                  Yes, Archive & Create New
+                </button>
+                <button
+                  onClick={() => toast.dismiss(t.id)}
+                  style={{
+                    background: "#64748b",
+                    color: "white",
+                    border: "none",
+                    padding: "6px 12px",
+                    borderRadius: 6,
+                    cursor: "pointer",
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ),
+          { duration: 8000, icon: '⚠️' }
+        );
+      } else {
+        toast.error(err.response?.data?.detail || "Failed to create plan");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForceCreatePlan = async () => {
+    setLoading(true);
+    try {
+      const activePlanResponse = await API.get("/plans/active");
+      const activePlanId = activePlanResponse.data.id;
+      await API.patch(`/plans/${activePlanId}/archive`);
+      
+      const res = await createPlanFromAI({
+        goal_summary: goalSummary,
+        suggested_tasks: suggestedTasks
+      });
+      
+      toast.success(`Success! Archived old plan and created new plan with ${res.data.tasks_created.length} tasks`);
+      navigate("/planner");
+    } catch (err) {
+      console.error("Failed to force create plan:", err);
+      toast.error("Failed to create plan. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -139,10 +227,10 @@ export default function AICoach() {
         {activeTab === "plan" && (
           <div>
             <h3 style={styles.cardTitle}>Generate Your Weekly Plan</h3>
-            <p style={styles.hint}>Tell the AI your goals and it will create a structured weekly plan with article recommendations</p>
+            <p style={styles.hint}>Tell the AI your goals and it will create a structured weekly plan with relevant article recommendations</p>
             <textarea 
               style={styles.textarea} 
-              placeholder="Example: Learn Java, build a project, complete assignments..." 
+              placeholder="Example: Learn Java, build a project, complete assignments, improve productivity..." 
               value={goals} 
               onChange={(e) => setGoals(e.target.value)} 
               rows={4} 
@@ -219,19 +307,55 @@ export default function AICoach() {
           <div style={styles.result}>
             <h4 style={styles.resultTitle}>AI Response:</h4>
             <div style={styles.resultText}>{renderResult(result)}</div>
-            {suggestedTasks.length > 0 && (
-              <div style={styles.taskSummary}>
-                <h4 style={styles.taskSummaryTitle}>Tasks to be created:</h4>
-                <ul style={styles.taskList}>
-                  {suggestedTasks.map((task, idx) => (
-                    <li key={idx} style={styles.taskItem}>
-                      <strong>{task.title}</strong>
-                      {task.description && <span> - {task.description}</span>}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+          </div>
+        )}
+
+        {/* Display Articles Section */}
+        {suggestedArticles.length > 0 && (
+          <div style={styles.articlesSection}>
+            <h4 style={styles.articlesTitle}>
+              <span style={{ marginRight: 8 }}>📚</span> 
+              Recommended Articles for Your Goals
+            </h4>
+            <div style={styles.articlesGrid}>
+              {suggestedArticles.map((article, idx) => (
+                <a 
+                  key={idx} 
+                  href={article.url} 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  style={styles.articleCard}
+                >
+                  <div style={styles.articleHeader}>
+                    <span style={styles.articleNumber}>{idx + 1}</span>
+                    <h5 style={styles.articleTitle}>{article.title}</h5>
+                  </div>
+                  <p style={styles.articleDescription}>{article.description}</p>
+                  <div style={styles.articleFooter}>
+                    <span style={styles.articleSource}>{article.source || "Recommended Reading"}</span>
+                    <span style={styles.readLink}>Read Article →</span>
+                  </div>
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Tasks Summary */}
+        {suggestedTasks.length > 0 && (
+          <div style={styles.taskSummary}>
+            <h4 style={styles.taskSummaryTitle}>
+              <span style={{ marginRight: 8 }}>✅</span>
+              Tasks to be created:
+            </h4>
+            <ul style={styles.taskList}>
+              {suggestedTasks.map((task, idx) => (
+                <li key={idx} style={styles.taskItem}>
+                  <strong>{task.title}</strong>
+                  {task.description && <span> - {task.description}</span>}
+                </li>
+              ))}
+            </ul>
           </div>
         )}
 
@@ -252,7 +376,7 @@ export default function AICoach() {
 const styles = {
   container: {
     padding: "32px 24px",
-    maxWidth: 900,
+    maxWidth: 1200,
     margin: "0 auto",
     minHeight: "100vh",
     background: "linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)",
@@ -392,8 +516,85 @@ const styles = {
     fontFamily: "inherit",
     marginBottom: 16,
   },
+  articlesSection: {
+    marginTop: 24,
+    paddingTop: 16,
+    borderTop: "2px solid #e2e8f0",
+  },
+  articlesTitle: {
+    color: "#1e293b",
+    fontWeight: 700,
+    marginTop: 0,
+    marginBottom: 16,
+    fontSize: 18,
+    display: "flex",
+    alignItems: "center",
+  },
+  articlesGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
+    gap: 16,
+  },
+  articleCard: {
+    background: "#f8fafc",
+    border: "1px solid #e2e8f0",
+    borderRadius: 12,
+    padding: "16px",
+    textDecoration: "none",
+    transition: "all 0.2s",
+    cursor: "pointer",
+    display: "block",
+  },
+  articleHeader: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: 12,
+    marginBottom: 12,
+  },
+  articleNumber: {
+    background: "#3b82f6",
+    color: "white",
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: 12,
+    fontWeight: 700,
+    flexShrink: 0,
+  },
+  articleTitle: {
+    margin: 0,
+    fontSize: 16,
+    fontWeight: 600,
+    color: "#1e293b",
+    lineHeight: 1.3,
+  },
+  articleDescription: {
+    fontSize: 13,
+    color: "#64748b",
+    lineHeight: 1.5,
+    margin: "0 0 12px 0",
+  },
+  articleFooter: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  articleSource: {
+    fontSize: 11,
+    color: "#94a3b8",
+    textTransform: "uppercase",
+    letterSpacing: "0.5px",
+  },
+  readLink: {
+    fontSize: 12,
+    color: "#3b82f6",
+    fontWeight: 600,
+  },
   taskSummary: {
-    marginTop: 16,
+    marginTop: 24,
     paddingTop: 16,
     borderTop: "1px solid #bfdbfe",
   },
@@ -402,7 +603,9 @@ const styles = {
     fontWeight: 600,
     marginTop: 0,
     marginBottom: 12,
-    fontSize: 14,
+    fontSize: 16,
+    display: "flex",
+    alignItems: "center",
   },
   taskList: {
     margin: 0,
@@ -439,6 +642,14 @@ styleSheet.textContent = `
   }
   .secondary-btn:hover:not(:disabled) {
     background: #059669 !important;
+  }
+  .article-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    border-color: #3b82f6;
+  }
+  .article-card:hover .read-link {
+    text-decoration: underline;
   }
 `;
 document.head.appendChild(styleSheet);

@@ -75,8 +75,12 @@ export default function Signup() {
       // Handle different error scenarios
       let errorMessage = "Signup failed. Please try again.";
       
-      if (err.response?.status === 400) {
+      if (err.code === "ERR_NETWORK" || err.message === "Network Error") {
+        errorMessage = "Network connection issue. Please check your internet and try again.";
+      } else if (err.response?.status === 400) {
         errorMessage = err.response.data?.detail || "Invalid information provided";
+      } else if (err.response?.status === 409) {
+        errorMessage = "Username or email already exists. Please try different ones.";
       } else if (err.response?.status === 500) {
         errorMessage = "Server error. Please try again later.";
       } else if (err.response?.data?.detail) {
@@ -101,7 +105,9 @@ export default function Signup() {
         
         <form onSubmit={handleSubmit}>
           <div style={styles.inputGroup}>
-            <label style={styles.label}>Email</label>
+            <label style={styles.label}>
+              Email <span style={styles.required}>*</span>
+            </label>
             <input
               style={styles.input}
               type="email"
@@ -113,7 +119,9 @@ export default function Signup() {
           </div>
           
           <div style={styles.inputGroup}>
-            <label style={styles.label}>Username</label>
+            <label style={styles.label}>
+              Username <span style={styles.required}>*</span>
+            </label>
             <input
               style={styles.input}
               type="text"
@@ -125,7 +133,9 @@ export default function Signup() {
           </div>
           
           <div style={styles.inputGroup}>
-            <label style={styles.label}>Password</label>
+            <label style={styles.label}>
+              Password <span style={styles.required}>*</span>
+            </label>
             <div style={styles.passwordWrapper}>
               <input
                 style={styles.input}
@@ -156,7 +166,9 @@ export default function Signup() {
           </div>
           
           <div style={styles.inputGroup}>
-            <label style={styles.label}>Phone Number (Optional)</label>
+            <label style={styles.label}>
+              Phone Number <span style={styles.optional}>(Optional)</span>
+            </label>
             <input
               style={styles.input}
               type="tel"
@@ -165,7 +177,7 @@ export default function Signup() {
               onChange={(e) => setForm({ ...form, phone_number: e.target.value })}
             />
             <small style={styles.helperText}>
-              Used for WhatsApp reminders
+              Used for WhatsApp reminders - international format recommended
             </small>
           </div>
           
@@ -251,10 +263,21 @@ const styles = {
     marginBottom: "8px",
     letterSpacing: "0.3px",
   },
+  required: {
+    color: "#ef4444",
+    fontSize: "14px",
+    marginLeft: "4px",
+  },
+  optional: {
+    color: "#64748b",
+    fontSize: "12px",
+    fontWeight: "400",
+    marginLeft: "4px",
+  },
   input: {
     width: "100%",
     padding: "12px 14px",
-    background: "#f0f9ff", // Light blue background
+    background: "#f0f9ff",
     border: "1px solid #bae6fd",
     borderRadius: "10px",
     fontSize: "14px",

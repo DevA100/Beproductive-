@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { login } from "../services/api";
 import { useAuth } from "../context/AuthContext";
@@ -42,8 +42,25 @@ export default function Login() {
   const [form, setForm] = useState({ email_or_username: "", password: "" });
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
   const { loginUser } = useAuth();
   const navigate = useNavigate();
+
+  // Test API connection on component mount
+  useEffect(() => {
+    const testConnection = async () => {
+      try {
+        // Simple health check to warm up the connection
+        await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/health`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        }).catch(() => null);
+      } catch (error) {
+        console.log("Initial connection check completed");
+      }
+    };
+    testConnection();
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -65,6 +82,9 @@ export default function Login() {
         email_or_username: form.email_or_username, 
         password: "***" 
       });
+      
+      // Add a small delay to ensure the API is ready
+      await new Promise(resolve => setTimeout(resolve, 100));
       
       const res = await login(form);
       console.log("Login response:", res);
@@ -90,7 +110,17 @@ export default function Login() {
       // Detailed error handling
       let errorMessage = "Login failed. Please try again.";
       
-      if (err.response) {
+      if (err.code === "ERR_NETWORK" || err.message === "Network Error") {
+        errorMessage = "Network connection issue. Please check your internet and try again.";
+        
+        // Auto retry for network errors
+        if (retryCount < 2) {
+          setRetryCount(prev => prev + 1);
+          toast.loading(`Retrying... (${retryCount + 1}/2)`, { duration: 2000 });
+          setTimeout(() => handleSubmit(e), 1500);
+          return;
+        }
+      } else if (err.response) {
         // Server responded with error status
         if (err.response.status === 401) {
           errorMessage = "Invalid email/username or password. Please try again.";
@@ -105,14 +135,19 @@ export default function Login() {
         }
       } else if (err.request) {
         // Request made but no response
-        errorMessage = "Network error. Please check your internet connection.";
+        errorMessage = "Server is not responding. Please check if the backend server is running.";
       } else {
         // Something else happened
         errorMessage = err.message || "An unexpected error occurred.";
       }
       
       // Show error toast
-      toast.error(errorMessage);
+      toast.error(errorMessage, { duration: 5000 });
+      
+      // Reset retry count on non-network errors
+      if (err.code !== "ERR_NETWORK") {
+        setRetryCount(0);
+      }
     } finally {
       setLoading(false);
     }
@@ -130,7 +165,9 @@ export default function Login() {
         
         <form onSubmit={handleSubmit}>
           <div style={styles.inputGroup}>
-            <label style={styles.label}>Email or Username</label>
+            <label style={styles.label}>
+              Email or Username <span style={styles.required}>*</span>
+            </label>
             <input
               style={styles.input}
               type="text"
@@ -142,7 +179,9 @@ export default function Login() {
           </div>
           
           <div style={styles.inputGroup}>
-            <label style={styles.label}>Password</label>
+            <label style={styles.label}>
+              Password <span style={styles.required}>*</span>
+            </label>
             <div style={styles.passwordWrapper}>
               <input
                 style={styles.input}
@@ -259,6 +298,11 @@ const styles = {
     color: "#475569",
     marginBottom: "8px",
     letterSpacing: "0.3px",
+  },
+  required: {
+    color: "#ef4444",
+    fontSize: "14px",
+    marginLeft: "4px",
   },
   input: {
     width: "100%",

@@ -74,6 +74,8 @@ export const dailyCheckin = (data) => API.post("/ai-coach/daily-checkin", data);
 export const suggestActions = (data) =>
   API.post("/ai-coach/suggest-next-actions", data);
 export const weeklySummary = () => API.get("/ai-coach/weekly-summary");
+export const suggestArticles = (data) =>
+  API.post("/ai-coach/suggest-articles", data); // New endpoint
 
 // Notifications
 export const sendDailyReminder = () =>

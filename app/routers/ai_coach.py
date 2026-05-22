@@ -7,7 +7,7 @@ from app.models.user import User
 from app.models.task import Task, TaskStatus, TaskPriority
 from app.models.weekly_plan import WeeklyPlan, PlanStatus
 from app.models.journal import Journal
-from app.services.ai_coach import generate_weekly_plan
+from app.services.ai_coach import generate_weekly_plan, suggest_articles
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import date, timedelta
@@ -33,6 +33,11 @@ class CreatePlanFromAIRequest(BaseModel):
     suggested_tasks: List[dict]
 
 
+class ArticleRequest(BaseModel):
+    goals: str
+    task_titles: Optional[List[str]] = None
+
+
 @router.post("/generate-weekly-plan")
 def ai_generate_weekly_plan(
     input: GoalsInput,
@@ -48,16 +53,29 @@ def ai_generate_weekly_plan(
         print("=== END AI RESPONSE ===")
 
         tasks = []
+        articles = []
         lines = plan.split('\n')
+
+        current_section = None
 
         for line in lines:
             line = line.strip()
-            # Look for lines that start with a number followed by dot
-            if re.match(r'^\d+\.', line):
-                # Remove the number and dot
+
+            # Detect sections
+            if 'RECOMMENDED ARTICLES:' in line.upper():
+                current_section = 'articles'
+                continue
+            elif 'TASKS:' in line.upper():
+                current_section = 'tasks'
+                continue
+            elif 'WEEKLY GOAL:' in line or 'Weekly Goal:' in line:
+                current_section = 'goal'
+                continue
+
+            # Parse tasks
+            if current_section == 'tasks' and re.match(r'^\d+\.', line):
                 task_part = re.sub(r'^\d+\.\s*', '', line)
 
-                # Split by dash if present
                 if ' - ' in task_part:
                     parts = task_part.split(' - ', 1)
                     title = parts[0].strip()
@@ -66,7 +84,6 @@ def ai_generate_weekly_plan(
                     title = task_part
                     description = ""
 
-                # Clean up any markdown
                 title = title.replace('**', '').replace('*', '').strip()
                 description = description.replace(
                     '**', '').replace('*', '').strip()
@@ -79,6 +96,37 @@ def ai_generate_weekly_plan(
                 if len(tasks) >= 5:
                     break
 
+            # Parse articles
+            elif current_section == 'articles' and re.match(r'^\d+\.', line):
+                article_part = re.sub(r'^\d+\.\s*', '', line)
+
+                # Parse article title, description, and URL
+                parts = article_part.split(' - ')
+
+                if len(parts) >= 3:
+                    article = {
+                        "title": parts[0].strip(),
+                        "description": parts[1].strip() if len(parts) > 1 else "",
+                        "url": parts[2].strip() if len(parts) > 2 else "#"
+                    }
+                elif len(parts) == 2:
+                    article = {
+                        "title": parts[0].strip(),
+                        "description": parts[1].strip(),
+                        "url": "#"
+                    }
+                else:
+                    article = {
+                        "title": article_part[:100],
+                        "description": "",
+                        "url": "#"
+                    }
+
+                articles.append(article)
+
+                if len(articles) >= 5:
+                    break
+
         # Extract goal
         goal_summary = input.goals[:300]
         for line in lines:
@@ -89,19 +137,36 @@ def ai_generate_weekly_plan(
                 goal_summary = goal_summary[:300]
                 break
 
-        print(f"Found {len(tasks)} tasks")
-        for i, task in enumerate(tasks):
-            print(f"  Task {i+1}: {task['title']}")
+        print(f"Found {len(tasks)} tasks and {len(articles)} articles")
 
         return {
             "message": "Weekly plan generated",
             "ai_plan": plan,
             "goal_summary": goal_summary,
             "suggested_tasks": tasks,
+            "suggested_articles": articles,  # This is optional - won't break old frontend
             "tip": "Click to create plan"
         }
     except Exception as e:
         print(f"Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/suggest-articles")
+def ai_suggest_articles(
+    request: ArticleRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get article recommendations based on user's goals and current tasks"""
+    try:
+        articles = suggest_articles(request.goals, request.task_titles)
+        return {
+            "articles": articles,
+            "message": f"Found {len(articles)} recommended articles"
+        }
+    except Exception as e:
+        print(f"Error suggesting articles: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -125,7 +190,7 @@ def create_plan_from_ai(
         if existing_plan:
             raise HTTPException(
                 status_code=400,
-                detail="You already have an active plan for this week"
+                detail="⚠️ You already have an active plan for this week. Please archive your current plan before creating a new one."
             )
 
         new_plan = WeeklyPlan(
