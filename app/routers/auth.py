@@ -1,9 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.user import User
+from app.models.task import Task
+from app.models.weekly_plan import WeeklyPlan
+from app.models.journal import Journal
+from app.models.daily_action import DailyAction
 from app.schemas.user import UserCreate, UserResponse, Token, LoginRequest
 from app.core.security import hash_password, verify_password, create_access_token
+from app.routers.deps import get_current_user
 from pydantic import BaseModel, EmailStr
 import random
 import string
@@ -26,6 +31,11 @@ class ResetPasswordRequest(BaseModel):
     email: EmailStr
     otp: str
     new_password: str
+
+
+class DeleteAccountRequest(BaseModel):
+    password: str
+    confirmation_text: str  # User must type "DELETE" to confirm
 
 
 @router.post("/signup", response_model=UserResponse)
@@ -182,3 +192,103 @@ def reset_password(request: ResetPasswordRequest, db: Session = Depends(get_db))
     logger.info(f"Password reset successful for email: {request.email}")
 
     return {"message": "Password reset successfully! Please login with your new password"}
+
+
+# ========== DELETE ACCOUNT ENDPOINT ==========
+@router.delete("/delete-account", status_code=status.HTTP_200_OK)
+async def delete_account(
+    request: DeleteAccountRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Permanently delete user account and all associated data.
+    User must confirm by typing "DELETE" and provide password.
+    """
+    # Verify confirmation text
+    if request.confirmation_text != "DELETE":
+        raise HTTPException(
+            status_code=400,
+            detail='Please type "DELETE" to confirm account deletion'
+        )
+
+    # Verify password
+    if not verify_password(request.password, current_user.hashed_password):
+        raise HTTPException(
+            status_code=401,
+            detail="Incorrect password"
+        )
+
+    user_id = current_user.id
+    user_email = current_user.email
+    username = current_user.username
+
+    try:
+        # Delete all tasks
+        tasks_deleted = db.query(Task).filter(Task.user_id == user_id).delete()
+        logger.info(f"Deleted {tasks_deleted} tasks for user {username}")
+
+        # Delete all weekly plans
+        plans_deleted = db.query(WeeklyPlan).filter(
+            WeeklyPlan.user_id == user_id).delete()
+        logger.info(
+            f"Deleted {plans_deleted} weekly plans for user {username}")
+
+        # Delete all journals
+        journals_deleted = db.query(Journal).filter(
+            Journal.user_id == user_id).delete()
+        logger.info(f"Deleted {journals_deleted} journals for user {username}")
+
+        # Delete all daily actions
+        actions_deleted = db.query(DailyAction).filter(
+            DailyAction.user_id == user_id).delete()
+        logger.info(
+            f"Deleted {actions_deleted} daily actions for user {username}")
+
+        # Delete the user
+        db.delete(current_user)
+        db.commit()
+
+        logger.info(
+            f"User account permanently deleted: {username} ({user_email})")
+
+        # Send goodbye email (optional, don't fail if it errors)
+        try:
+            from app.services.email_service import send_email
+            await send_email(
+                to_email=user_email,
+                subject="Goodbye from BeProductive",
+                body=f"""
+Hi {username},
+
+Your BeProductive account has been permanently deleted.
+
+We're sad to see you go! If you change your mind, you can always create a new account.
+
+All your data has been removed from our systems.
+
+Best regards,
+The BeProductive Team
+                """
+            )
+            logger.info(f"Goodbye email sent to {user_email}")
+        except Exception as e:
+            logger.error(f"Failed to send goodbye email to {user_email}: {e}")
+
+        return {
+            "message": "Account permanently deleted",
+            "deleted_data": {
+                "tasks": tasks_deleted,
+                "weekly_plans": plans_deleted,
+                "journals": journals_deleted,
+                "daily_actions": actions_deleted
+            }
+        }
+
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Account deletion failed for {username}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to delete account. Please try again or contact support."
+        )

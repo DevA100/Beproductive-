@@ -10,6 +10,7 @@ import Journal from "./pages/Journal";
 import AICoach from "./pages/AICoach";
 import Settings from "./pages/Settings";
 import ForgotPassword from "./pages/ForgotPassword";
+import DeleteAccount from "./components/DeleteAccount";
 
 const ProtectedLayout = ({ children }) => {
   const { user, loading } = useAuth();
@@ -51,6 +52,7 @@ function AppRoutes() {
       <Route path="/settings" element={<ProtectedLayout><Settings /></ProtectedLayout>} />
       <Route path="*" element={<Navigate to="/dashboard" />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/settings/delete-account" element={<DeleteAccount />} />
     </Routes>
   );
 }

@@ -38,6 +38,8 @@ export const login = async (data) => {
     throw error;
   }
 };
+export const deleteAccount = (data) =>
+  API.delete("/auth/delete-account", { data });
 export const getMe = () => API.get("/users/me");
 export const forgotPassword = (email) =>
   API.post("/auth/forgot-password", { email });
