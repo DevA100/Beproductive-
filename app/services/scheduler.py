@@ -1,7 +1,7 @@
+# app/services/scheduler.py
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
-from datetime import datetime, date, timedelta  # Added timedelta here
-from sqlalchemy.orm import Session
+from datetime import datetime, date, timedelta
 from app.database import SessionLocal
 from app.models.user import User
 from app.models.task import Task, TaskStatus

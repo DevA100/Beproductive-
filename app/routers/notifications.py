@@ -136,8 +136,6 @@ async def send_weekly_summary_endpoint(
     background_tasks.add_task(send_weekly_summary_task, current_user, db)
     return {"message": "Weekly summary will be sent shortly"}
 
-# Add to app/routers/notifications.py
-
 
 @router.post("/test-all-notifications")
 async def test_all_notifications(
@@ -179,8 +177,44 @@ async def test_whatsapp(current_user: User = Depends(get_current_user)):
 @router.get("/scheduler-status")
 def scheduler_status():
     """Check if scheduler is running"""
-    from app.scheduler import scheduler
+    from app.services.scheduler import scheduler  # Fixed import path
+    jobs_info = []
+    for job in scheduler.get_jobs():
+        jobs_info.append({
+            "id": job.id,
+            "next_run_time": str(job.next_run_time) if job.next_run_time else None
+        })
+
     return {
         "scheduler_running": scheduler.running,
-        "jobs": [job.id for job in scheduler.get_jobs()]
+        "jobs": jobs_info,
+        "total_jobs": len(scheduler.get_jobs())
+    }
+
+
+@router.post("/test-morning-reminder")
+async def test_morning_reminder(
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Test morning reminder immediately"""
+    background_tasks.add_task(send_daily_reminder_task, current_user, db)
+    return {
+        "message": "Morning reminder test queued",
+        "user_email": current_user.email
+    }
+
+
+@router.post("/test-weekly-summary")
+async def test_weekly_summary_immediate(
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Test weekly summary immediately"""
+    background_tasks.add_task(send_weekly_summary_task, current_user, db)
+    return {
+        "message": "Weekly summary test queued",
+        "user_email": current_user.email
     }
