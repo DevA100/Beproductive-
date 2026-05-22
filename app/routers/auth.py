@@ -30,35 +30,46 @@ class ResetPasswordRequest(BaseModel):
 
 @router.post("/signup", response_model=UserResponse)
 async def signup(user: UserCreate, db: Session = Depends(get_db)):
+    # Check if email already exists
     if db.query(User).filter(User.email == user.email).first():
         raise HTTPException(
             status_code=400, detail="This email is already registered")
+
+    # Check if username already exists
     if db.query(User).filter(User.username == user.username).first():
         raise HTTPException(
             status_code=400, detail="This username is already taken")
+
+    # Format phone number before saving
+    formatted_phone = User.format_phone_number(
+        user.phone_number) if user.phone_number else None
 
     new_user = User(
         email=user.email,
         username=user.username,
         hashed_password=hash_password(user.password),
-        phone_number=user.phone_number
+        phone_number=formatted_phone
     )
     db.add(new_user)
 
     try:
         db.commit()
         db.refresh(new_user)
-    except Exception:
+        logger.info(
+            f"User created successfully: {new_user.username} (Phone: {formatted_phone})")
+    except Exception as e:
         db.rollback()
+        logger.error(f"User creation failed: {str(e)}")
         raise HTTPException(
             status_code=500, detail="Account creation failed. Please try again")
 
-    # Send welcome email — don't fail signup if email fails
     try:
         from app.services.email_service import send_welcome_email
         await send_welcome_email(to_email=new_user.email, username=new_user.username)
+        logger.info(f"Welcome email sent to {new_user.email}")
     except Exception as e:
-        logger.error(f"Failed to send welcome email: {str(e)}")
+        logger.error(
+            f"Failed to send welcome email to {new_user.email}: {str(e)}")
 
     return new_user
 
@@ -86,7 +97,6 @@ async def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(
         raise HTTPException(
             status_code=404, detail="No account found with this email")
 
-    # Generate 6-digit OTP
     otp = "".join(random.choices(string.digits, k=6))
     otp_store[request.email] = {
         "otp": otp,
@@ -105,7 +115,6 @@ async def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(
         logger.info(f"OTP email sent successfully to {request.email}")
 
     except ImportError:
-        # Fallback to send_email function
         try:
             from app.services.email_service import send_email
             await send_email(
@@ -134,7 +143,6 @@ Your BeProductive Team
 
     except Exception as e:
         logger.error(f"Failed to send OTP email to {request.email}: {str(e)}")
-        # For development, log the OTP to console
         print(f"\n=== OTP FOR {request.email}: {otp} ===\n")
         raise HTTPException(
             status_code=500, detail=f"Failed to send OTP email. Please check your email configuration.")

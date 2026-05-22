@@ -1,25 +1,51 @@
 import httpx
 from app.core.config import settings
 import logging
+import re
 
 logger = logging.getLogger(__name__)
 
 WHATSAPP_API_URL = f"https://graph.facebook.com/v18.0/{settings.WHATSAPP_PHONE_ID}/messages"
 
 
+def format_phone_number(phone: str) -> str:
+    """
+    Format phone number for WhatsApp API (Universal - works for any country)
+
+    Examples:
+    - Nigeria: 07043955397 → 2347043955397
+    - US: (415) 555-1234 → 14155551234
+    - UK: 07911 123456 → 447911123456
+    - India: 9876543210 → 919876543210
+    """
+    # Remove any non-digit characters (+, -, spaces, brackets, etc.)
+    phone = re.sub(r'\D', '', phone)
+
+    # Remove leading zeros
+    phone = phone.lstrip('0')
+
+    # If the number doesn't have a country code (less than 10-12 digits)
+    # You'll need to detect or assume based on your user base
+    # For now, we'll keep it as-is and let WhatsApp API validate
+
+    # Note: WhatsApp requires the number to have the country code
+    # If your users store numbers without country code, you'll need to add logic here
+
+    return phone
+
+
 async def send_whatsapp_message(to_phone: str, message: str):
     """Send a WhatsApp message to a phone number"""
     if not settings.WHATSAPP_TOKEN or not settings.WHATSAPP_PHONE_ID:
         logger.warning("WhatsApp not configured - missing token or phone ID")
-        return {"error": "WhatsApp not configured"}
+        return {"error": "WhatsApp not configured", "skipped": True}
 
-    # Clean phone number
-    phone = to_phone.replace("+", "").replace(" ", "").replace("-", "")
+    # Format the phone number properly
+    original_phone = to_phone
+    formatted_phone = format_phone_number(to_phone)
 
-    # Ensure phone number has country code
-    if not phone.startswith("234") and not phone.startswith("1") and not phone.startswith("44"):
-        logger.warning(
-            f"Phone number {phone} may not have correct country code")
+    logger.info(
+        f"Original phone: {original_phone} -> Formatted: {formatted_phone}")
 
     headers = {
         "Authorization": f"Bearer {settings.WHATSAPP_TOKEN}",
@@ -28,102 +54,43 @@ async def send_whatsapp_message(to_phone: str, message: str):
 
     payload = {
         "messaging_product": "whatsapp",
-        "to": phone,
+        "to": formatted_phone,  # Use formatted phone number
         "type": "text",
-        "text": {"body": message[:1000]}  # WhatsApp message limit
+        "text": {"body": message[:1000]}
     }
 
-    logger.info(f"Sending WhatsApp message to {phone}")
+    logger.info(f"Sending WhatsApp message to {formatted_phone}")
 
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(WHATSAPP_API_URL, json=payload, headers=headers)
 
             if response.status_code == 200:
-                logger.info(f"WhatsApp message sent successfully to {phone}")
+                logger.info(
+                    f"WhatsApp message sent successfully to {formatted_phone}")
                 return response.json()
             else:
                 logger.error(
                     f"WhatsApp API error: {response.status_code} - {response.text}")
-                raise Exception(
-                    f"WhatsApp API returned {response.status_code}")
+
+                # Provide more helpful error messages
+                if response.status_code == 400:
+                    error_detail = response.json().get('error', {}).get('message', 'Unknown error')
+                    if 'invalid phone number' in error_detail.lower():
+                        raise Exception(
+                            f"Invalid phone number format. Please ensure '{original_phone}' includes the country code (e.g., 234 for Nigeria, 1 for US)")
+                    elif 'not registered' in error_detail.lower():
+                        raise Exception(
+                            f"Phone number '{formatted_phone}' is not registered with WhatsApp Business API. The number must be verified in WhatsApp Manager first.")
+                    else:
+                        raise Exception(f"WhatsApp API error: {error_detail}")
+                else:
+                    raise Exception(
+                        f"WhatsApp API returned {response.status_code}")
 
     except httpx.TimeoutException:
-        logger.error(f"WhatsApp timeout for {phone}")
+        logger.error(f"WhatsApp timeout for {formatted_phone}")
         raise Exception("WhatsApp API timeout")
     except Exception as e:
-        logger.error(f"WhatsApp error for {phone}: {e}")
+        logger.error(f"WhatsApp error for {formatted_phone}: {e}")
         raise
-
-
-async def send_whatsapp_welcome(phone: str, username: str):
-    """Send welcome message via WhatsApp"""
-    message = f"""🎉 Welcome to BeProductive, {username}! 🎉
-
-Your AI-powered productivity coach is ready.
-
-Here's what I'll do for you:
-✅ Send your daily tasks every morning
-✅ Weekly performance summaries  
-✅ Monday plan reminders
-✅ AI coaching on demand
-
-Let's make every week count! 💪
-
-Reply HELP for support or STOP to unsubscribe."""
-
-    await send_whatsapp_message(phone, message)
-
-
-async def send_whatsapp_daily_reminder(phone: str, username: str, tasks: list):
-    """Send daily task reminder via WhatsApp"""
-    if not tasks:
-        task_list = "✨ No pending tasks! Great job!"
-    else:
-        task_list = "\n".join([f"  📌 {t}" for t in tasks[:5]])
-        if len(tasks) > 5:
-            task_list += f"\n  ... and {len(tasks) - 5} more"
-
-    message = f"""🌅 Good morning, {username}!
-
-Your tasks for today:
-
-{task_list}
-
-💡 Tip: Start with your hardest task first - eat that frog! 🐸
-
-Have a productive day! 🚀
-
-BeProductive AI Coach"""
-
-    await send_whatsapp_message(phone, message)
-
-
-async def send_whatsapp_weekly_summary(phone: str, username: str, summary: str, avg_score: float, tasks_completed: int):
-    """Send weekly summary via WhatsApp"""
-    message = f"""📊 Weekly Summary - {username}
-
-✅ Tasks Completed: {tasks_completed}
-⭐ Avg Productivity Score: {avg_score}/10
-
-🤖 AI Coach Says:
-{summary[:400]}...
-
-🎯 Ready for a new week? Create your plan!
-
-BeProductive - Your AI Productivity Coach"""
-
-    await send_whatsapp_message(phone, message)
-
-
-async def send_whatsapp_otp(phone: str, otp: str):
-    """Send OTP via WhatsApp for verification"""
-    message = f"""🔐 Your BeProductive verification code is: {otp}
-
-This code will expire in 10 minutes.
-
-If you didn't request this, please ignore this message.
-
-BeProductive AI Coach"""
-
-    await send_whatsapp_message(phone, message)

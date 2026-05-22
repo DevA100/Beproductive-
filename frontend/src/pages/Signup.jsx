@@ -37,11 +37,50 @@ const FullLogo = ({ size = "default", variant = "light" }) => {
   );
 };
 
+// Country codes for WhatsApp (international format)
+const countryCodes = [
+  { code: "1", country: "🇺🇸 United States / Canada", example: "4155551234" },
+  { code: "44", country: "🇬🇧 United Kingdom", example: "7911123456" },
+  { code: "234", country: "🇳🇬 Nigeria", example: "7043955397" },
+  { code: "91", country: "🇮🇳 India", example: "9876543210" },
+  { code: "61", country: "🇦🇺 Australia", example: "412345678" },
+  { code: "27", country: "🇿🇦 South Africa", example: "712345678" },
+  { code: "254", country: "🇰🇪 Kenya", example: "712345678" },
+  { code: "233", country: "🇬🇭 Ghana", example: "241234567" },
+  { code: "234", country: "🇳🇬 Nigeria", example: "7043955397" },
+  { code: "20", country: "🇪🇬 Egypt", example: "1012345678" },
+  { code: "966", country: "🇸🇦 Saudi Arabia", example: "512345678" },
+  { code: "971", country: "🇦🇪 UAE", example: "501234567" },
+  { code: "49", country: "🇩🇪 Germany", example: "15123456789" },
+  { code: "33", country: "🇫🇷 France", example: "612345678" },
+  { code: "55", country: "🇧🇷 Brazil", example: "11987654321" },
+  { code: "81", country: "🇯🇵 Japan", example: "9012345678" },
+  { code: "86", country: "🇨🇳 China", example: "13123456789" },
+];
+
 export default function Signup() {
-  const [form, setForm] = useState({ email: "", username: "", password: "", phone_number: "" });
+  const [form, setForm] = useState({ 
+    email: "", 
+    username: "", 
+    password: "",
+    phone_country_code: "234", // Default to Nigeria
+    phone_local: ""
+  });
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
+
+  // Format phone number by combining country code + local number
+  const formatPhoneNumber = () => {
+    if (!form.phone_local) return "";
+    // Remove all non-digit characters from local number
+    let cleaned = form.phone_local.replace(/\D/g, '');
+    // Remove leading zeros from local number
+    cleaned = cleaned.replace(/^0+/, '');
+    // Combine country code + cleaned local number
+    const fullNumber = form.phone_country_code + cleaned;
+    return fullNumber;
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -65,14 +104,22 @@ export default function Signup() {
     }
     
     setLoading(true);
+    
+    // Prepare data with formatted phone number
+    const submitData = {
+      email: form.email,
+      username: form.username,
+      password: form.password,
+      phone_number: formatPhoneNumber() // Combine country code + local number
+    };
+    
     try {
-      await signup(form);
+      await signup(submitData);
       toast.success("Account created! Please login");
       navigate("/login");
     } catch (err) {
       console.error("Signup error:", err.response?.data);
       
-      // Handle different error scenarios
       let errorMessage = "Signup failed. Please try again.";
       
       if (err.code === "ERR_NETWORK" || err.message === "Network Error") {
@@ -169,15 +216,30 @@ export default function Signup() {
             <label style={styles.label}>
               Phone Number <span style={styles.optional}>(Optional)</span>
             </label>
-            <input
-              style={styles.input}
-              type="tel"
-              placeholder="e.g., +2348012345678 (for WhatsApp)"
-              value={form.phone_number}
-              onChange={(e) => setForm({ ...form, phone_number: e.target.value })}
-            />
+            <div style={{ display: "flex", gap: "12px" }}>
+              <select
+                style={{ ...styles.input, width: "140px" }}
+                value={form.phone_country_code}
+                onChange={(e) => setForm({ ...form, phone_country_code: e.target.value })}
+              >
+                {countryCodes.map((country) => (
+                  <option key={country.code} value={country.code}>
+                    {country.country} (+{country.code})
+                  </option>
+                ))}
+              </select>
+              <input
+                style={{ ...styles.input, flex: 1 }}
+                type="tel"
+                placeholder={`e.g., ${countryCodes.find(c => c.code === form.phone_country_code)?.example || "7043955397"}`}
+                value={form.phone_local}
+                onChange={(e) => setForm({ ...form, phone_local: e.target.value })}
+              />
+            </div>
             <small style={styles.helperText}>
-              Used for WhatsApp reminders - international format recommended
+              📱 For WhatsApp reminders. Select your country and enter your local number (without country code).
+              <br />
+              <strong>Preview:</strong> {formatPhoneNumber() || "Not entered yet"}
             </small>
           </div>
           
@@ -230,7 +292,7 @@ const styles = {
     borderRadius: "20px",
     padding: "48px 40px",
     width: "100%",
-    maxWidth: "440px",
+    maxWidth: "500px",
     boxShadow: "0 20px 40px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.1)",
   },
   logoContainer: {
@@ -377,7 +439,7 @@ styleSheet.textContent = `
   @keyframes spin {
     to { transform: rotate(360deg); }
   }
-  input:focus {
+  input:focus, select:focus {
     border-color: #3b82f6 !important;
     background: #ffffff !important;
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
