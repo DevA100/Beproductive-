@@ -135,3 +135,52 @@ async def send_weekly_summary_endpoint(
 ):
     background_tasks.add_task(send_weekly_summary_task, current_user, db)
     return {"message": "Weekly summary will be sent shortly"}
+
+# Add to app/routers/notifications.py
+
+
+@router.post("/test-all-notifications")
+async def test_all_notifications(
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Test all notification types for the current user"""
+    background_tasks.add_task(send_welcome_notifications, current_user)
+    background_tasks.add_task(send_daily_reminder_task, current_user, db)
+    background_tasks.add_task(send_weekly_summary_task, current_user, db)
+
+    return {
+        "message": "Test notifications queued",
+        "user_email": current_user.email,
+        "user_phone": current_user.phone_number if current_user.phone_number else "Not set"
+    }
+
+
+@router.post("/test-whatsapp")
+async def test_whatsapp(current_user: User = Depends(get_current_user)):
+    """Test WhatsApp message for current user"""
+    if not current_user.phone_number:
+        raise HTTPException(
+            status_code=400, detail="No phone number configured")
+
+    try:
+        from app.services.whatsapp_service import send_whatsapp_message
+        await send_whatsapp_message(
+            to_phone=current_user.phone_number,
+            message=f"Hello {current_user.username}! This is a test message from BeProductive. Your notifications are working! 🎉"
+        )
+        return {"message": "WhatsApp test message sent", "phone": current_user.phone_number}
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"WhatsApp test failed: {str(e)}")
+
+
+@router.get("/scheduler-status")
+def scheduler_status():
+    """Check if scheduler is running"""
+    from app.scheduler import scheduler
+    return {
+        "scheduler_running": scheduler.running,
+        "jobs": [job.id for job in scheduler.get_jobs()]
+    }
