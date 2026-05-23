@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { generateWeeklyPlan, createPlanFromAI, dailyCheckin, suggestActions, weeklySummary, suggestArticles } from "../services/api";
 import toast from "react-hot-toast";
@@ -17,24 +17,116 @@ export default function AICoach() {
   const [actionForm, setActionForm] = useState({ todays_journal: "" });
   const navigate = useNavigate();
 
+  // Auto-create plan when tasks are generated
+  useEffect(() => {
+    const autoCreatePlan = async () => {
+      if (suggestedTasks.length > 0 && generatedPlan && !loading && goalSummary) {
+        setLoading(true);
+        try {
+          const res = await createPlanFromAI({
+            goal_summary: goalSummary,
+            suggested_tasks: suggestedTasks
+          });
+          
+          toast.success(`✓ Plan automatically created! Added ${res.data.tasks_created.length} tasks to your planner`);
+          
+          // Navigate to planner after 1.5 seconds
+          setTimeout(() => {
+            navigate("/planner");
+          }, 1500);
+        } catch (err) {
+          console.error("Auto-create failed:", err);
+          // Don't show error toast here - let user try manually
+          toast.error(
+            (t) => (
+              <div>
+                <span role="img" aria-label="warning" style={{ marginRight: 8 }}>⚠️</span>
+                <strong>Failed to auto-create plan</strong>
+                <br />
+                Please click the "Create Plan" button below
+                <div style={{ marginTop: 8 }}>
+                  <button
+                    onClick={() => {
+                      toast.dismiss(t.id);
+                    }}
+                    style={{
+                      background: "#3b82f6",
+                      color: "white",
+                      border: "none",
+                      padding: "6px 12px",
+                      borderRadius: 6,
+                      cursor: "pointer",
+                    }}
+                  >
+                    OK
+                  </button>
+                </div>
+              </div>
+            ),
+            { duration: 5000 }
+          );
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+    
+    autoCreatePlan();
+  }, [suggestedTasks, generatedPlan, goalSummary, navigate]);
+
   const handleGeneratePlan = async () => {
     if (!goals.trim()) return toast.error("Please enter your goals");
+    
     setLoading(true);
+    setResult("");
+    setGeneratedPlan(null);
+    setSuggestedTasks([]);
+    setSuggestedArticles([]);
+    
     try {
+      // First, check if user already has an active plan
+      try {
+        const activePlanResponse = await API.get("/plans/active");
+        if (activePlanResponse.data && activePlanResponse.data.id) {
+          const userConfirmed = window.confirm(
+            "You already have an active weekly plan.\n\nWould you like to archive it and create a new one?"
+          );
+          
+          if (userConfirmed) {
+            await API.patch(`/plans/${activePlanResponse.data.id}/archive`);
+            toast.success("Previous plan archived successfully");
+          } else {
+            setLoading(false);
+            return;
+          }
+        }
+      } catch (err) {
+        // 404 means no active plan - that's fine
+        if (err.response?.status !== 404) {
+          console.error("Error checking active plan:", err);
+        }
+      }
+
+      // Generate the AI plan
       const res = await generateWeeklyPlan({ goals });
+      
       setResult(res.data.ai_plan);
       setGeneratedPlan(res.data.ai_plan);
       setSuggestedTasks(res.data.suggested_tasks || []);
-      setSuggestedArticles(res.data.suggested_articles || []);
       setGoalSummary(res.data.goal_summary || goals);
-      toast.success("Plan generated successfully");
       
-      // If no articles were returned, fetch them separately
+      toast.success("AI plan generated successfully!");
+      
+      // Fetch articles separately if none were returned
       if (!res.data.suggested_articles || res.data.suggested_articles.length === 0) {
-        fetchArticles(res.data.goal_summary || goals, res.data.suggested_tasks);
+        await fetchArticles(res.data.goal_summary || goals, res.data.suggested_tasks || []);
+      } else {
+        setSuggestedArticles(res.data.suggested_articles);
       }
-    } catch { 
-      toast.error("AI service failed. Please try again"); 
+      
+    } catch (err) { 
+      console.error("AI service error:", err);
+      toast.error(err.response?.data?.detail || "AI service failed. Please try again"); 
     } finally { 
       setLoading(false); 
     }
@@ -54,65 +146,61 @@ export default function AICoach() {
   };
 
   const handleCreatePlanFromAI = async () => {
-    if (!generatedPlan) return;
+    if (!generatedPlan || suggestedTasks.length === 0) {
+      toast.error("No plan generated yet. Please generate a plan first.");
+      return;
+    }
     
     setLoading(true);
     try {
+      // Double-check for active plan before creating
+      try {
+        const activePlanResponse = await API.get("/plans/active");
+        if (activePlanResponse.data && activePlanResponse.data.id) {
+          const userConfirmed = window.confirm(
+            "You have an active plan. Replace it with this new one?"
+          );
+          
+          if (userConfirmed) {
+            await API.patch(`/plans/${activePlanResponse.data.id}/archive`);
+            toast.success("Previous plan archived");
+          } else {
+            setLoading(false);
+            return;
+          }
+        }
+      } catch (err) {
+        // No active plan - continue
+        if (err.response?.status !== 404) {
+          console.error("Error checking plan:", err);
+        }
+      }
+      
       const res = await createPlanFromAI({
         goal_summary: goalSummary,
         suggested_tasks: suggestedTasks
       });
       
-      toast.success(`Success! Created plan with ${res.data.tasks_created.length} tasks`);
-      navigate("/planner");
+      toast.success(`✓ Success! Created plan with ${res.data.tasks_created.length} tasks`);
+      
+      setTimeout(() => {
+        navigate("/planner");
+      }, 1500);
+      
     } catch (err) {
       console.error("Failed to create plan:", err);
+      
       if (err.response?.status === 400 && err.response?.data?.detail?.includes("already have an active plan")) {
-        toast.error(
-          (t) => (
-            <div>
-              <span role="img" aria-label="warning" style={{ marginRight: 8 }}>⚠️</span>
-              <strong>You already have an active weekly plan!</strong>
-              <br />
-              Would you like to archive it and create a new one?
-              <div style={{ marginTop: 8 }}>
-                <button
-                  onClick={() => {
-                    toast.dismiss(t.id);
-                    handleForceCreatePlan();
-                  }}
-                  style={{
-                    background: "#f59e0b",
-                    color: "white",
-                    border: "none",
-                    padding: "6px 12px",
-                    borderRadius: 6,
-                    cursor: "pointer",
-                    marginRight: 8,
-                  }}
-                >
-                  Yes, Archive & Create New
-                </button>
-                <button
-                  onClick={() => toast.dismiss(t.id)}
-                  style={{
-                    background: "#64748b",
-                    color: "white",
-                    border: "none",
-                    padding: "6px 12px",
-                    borderRadius: 6,
-                    cursor: "pointer",
-                  }}
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          ),
-          { duration: 8000, icon: '⚠️' }
+        // Offer to force create
+        const forceCreate = window.confirm(
+          "You already have an active weekly plan.\n\nWould you like to archive it and create this new plan?"
         );
+        
+        if (forceCreate) {
+          await handleForceCreatePlan();
+        }
       } else {
-        toast.error(err.response?.data?.detail || "Failed to create plan");
+        toast.error(err.response?.data?.detail || "Failed to create plan. Please try again.");
       }
     } finally {
       setLoading(false);
@@ -122,17 +210,25 @@ export default function AICoach() {
   const handleForceCreatePlan = async () => {
     setLoading(true);
     try {
+      // Get and archive active plan
       const activePlanResponse = await API.get("/plans/active");
-      const activePlanId = activePlanResponse.data.id;
-      await API.patch(`/plans/${activePlanId}/archive`);
+      if (activePlanResponse.data && activePlanResponse.data.id) {
+        await API.patch(`/plans/${activePlanResponse.data.id}/archive`);
+        toast.success("Previous plan archived");
+      }
       
+      // Create new plan
       const res = await createPlanFromAI({
         goal_summary: goalSummary,
         suggested_tasks: suggestedTasks
       });
       
-      toast.success(`Success! Archived old plan and created new plan with ${res.data.tasks_created.length} tasks`);
-      navigate("/planner");
+      toast.success(`✓ Success! Archived old plan and created new plan with ${res.data.tasks_created.length} tasks`);
+      
+      setTimeout(() => {
+        navigate("/planner");
+      }, 1500);
+      
     } catch (err) {
       console.error("Failed to force create plan:", err);
       toast.error("Failed to create plan. Please try again.");
@@ -147,9 +243,10 @@ export default function AICoach() {
     try {
       const res = await dailyCheckin(checkinForm);
       setResult(res.data.ai_feedback);
-      toast.success("Check-in complete");
-    } catch { 
-      toast.error("AI service failed. Please try again"); 
+      toast.success("Check-in complete! Great job reflecting on your day.");
+    } catch (err) { 
+      console.error("Check-in error:", err);
+      toast.error(err.response?.data?.detail || "AI service failed. Please try again"); 
     } finally { 
       setLoading(false); 
     }
@@ -161,9 +258,10 @@ export default function AICoach() {
     try {
       const res = await suggestActions(actionForm);
       setResult(res.data.ai_suggestions);
-      toast.success("Suggestions ready");
-    } catch { 
-      toast.error("AI service failed. Please try again"); 
+      toast.success("AI suggestions ready! Check them out below.");
+    } catch (err) { 
+      console.error("Suggest actions error:", err);
+      toast.error(err.response?.data?.detail || "AI service failed. Please try again"); 
     } finally { 
       setLoading(false); 
     }
@@ -174,9 +272,10 @@ export default function AICoach() {
     try {
       const res = await weeklySummary();
       setResult(res.data.ai_summary);
-      toast.success("Summary ready");
-    } catch { 
-      toast.error("AI service failed. Please try again"); 
+      toast.success("Weekly summary generated! See your progress.");
+    } catch (err) { 
+      console.error("Weekly summary error:", err);
+      toast.error(err.response?.data?.detail || "AI service failed. Please try again"); 
     } finally { 
       setLoading(false); 
     }
@@ -215,7 +314,13 @@ export default function AICoach() {
         {tabs.map((tab) => (
           <button 
             key={tab.id} 
-            onClick={() => { setActiveTab(tab.id); setResult(""); setGeneratedPlan(null); }} 
+            onClick={() => { 
+              setActiveTab(tab.id); 
+              setResult(""); 
+              setGeneratedPlan(null);
+              setSuggestedTasks([]);
+              setSuggestedArticles([]);
+            }} 
             style={{ ...styles.tab, ...(activeTab === tab.id ? styles.activeTab : {}) }}
           >
             {tab.label}
@@ -227,7 +332,12 @@ export default function AICoach() {
         {activeTab === "plan" && (
           <div>
             <h3 style={styles.cardTitle}>Generate Your Weekly Plan</h3>
-            <p style={styles.hint}>Tell the AI your goals and it will create a structured weekly plan with relevant article recommendations</p>
+            <p style={styles.hint}>
+              Tell the AI your goals and it will create a structured weekly plan with relevant article recommendations.
+              <strong style={{ color: "#10b981", display: "block", marginTop: 8 }}>
+                After generation, your plan will be automatically created!
+              </strong>
+            </p>
             <textarea 
               style={styles.textarea} 
               placeholder="Example: Learn Java, build a project, complete assignments, improve productivity..." 
@@ -235,12 +345,16 @@ export default function AICoach() {
               onChange={(e) => setGoals(e.target.value)} 
               rows={4} 
             />
-            <button onClick={handleGeneratePlan} disabled={loading} style={styles.aiBtn}>
+            <button 
+              onClick={handleGeneratePlan} 
+              disabled={loading} 
+              style={styles.aiBtn}
+            >
               {loading ? (
                 <span style={styles.buttonContent}>
-                  <span style={styles.spinner}></span> Generating...
+                  <span style={styles.spinner}></span> Generating Plan...
                 </span>
-              ) : "Generate My Plan"}
+              ) : "Generate & Create Plan"}
             </button>
           </div>
         )}
@@ -342,7 +456,7 @@ export default function AICoach() {
         )}
 
         {/* Tasks Summary */}
-        {suggestedTasks.length > 0 && (
+        {suggestedTasks.length > 0 && !loading && (
           <div style={styles.taskSummary}>
             <h4 style={styles.taskSummaryTitle}>
               <span style={{ marginRight: 8 }}>✅</span>
@@ -359,13 +473,14 @@ export default function AICoach() {
           </div>
         )}
 
-        {generatedPlan && suggestedTasks.length > 0 && (
+        {/* Manual Create Button (only shown if auto-create fails) */}
+        {generatedPlan && suggestedTasks.length > 0 && !loading && (
           <button 
             onClick={handleCreatePlanFromAI} 
             disabled={loading}
             style={{ ...styles.secondaryBtn, marginTop: 16 }}
           >
-            {loading ? "Creating Plan..." : "Create Weekly Plan with Tasks"}
+            {loading ? "Creating Plan..." : "🔄 Manually Create Plan (if auto-create failed)"}
           </button>
         )}
       </div>
@@ -619,7 +734,6 @@ const styles = {
   },
 };
 
-// Add global styles
 const styleSheet = document.createElement("style");
 styleSheet.textContent = `
   @keyframes spin {
