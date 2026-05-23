@@ -9,6 +9,11 @@ from app.models.weekly_plan import WeeklyPlan, PlanStatus
 from app.models.journal import Journal
 from app.services.email_service import send_daily_reminder, send_weekly_summary_email, send_email
 from app.services.ai_coach import weekly_summary
+from app.services.whatsapp_service import (
+    send_whatsapp_daily_reminder,
+    send_whatsapp_weekly_summary,
+    send_whatsapp_message
+)
 import logging
 
 logger = logging.getLogger(__name__)

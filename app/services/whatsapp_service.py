@@ -94,3 +94,28 @@ async def send_whatsapp_message(to_phone: str, message: str):
     except Exception as e:
         logger.error(f"WhatsApp error for {formatted_phone}: {e}")
         raise
+# Add these after your existing functions (after send_whatsapp_message)
+
+
+async def send_whatsapp_daily_reminder(phone: str, username: str, tasks: list):
+    """Send daily reminder via WhatsApp"""
+    if not tasks:
+        task_text = "No pending tasks. Great job! 🎉"
+    else:
+        task_list = "\n".join([f"• {task}" for task in tasks[:5]])
+        task_text = f"Your pending tasks:\n{task_list}"
+
+    message = f"🌅 Good morning {username}!\n\n{task_text}\n\nStay productive today! 💪"
+
+    return await send_whatsapp_message(phone, message)
+
+
+async def send_whatsapp_weekly_summary(phone: str, username: str, summary: str, avg_score: float, tasks_completed: int):
+    """Send weekly summary via WhatsApp"""
+    message = f"📊 *Weekly Summary for {username}*\n\n"
+    message += f"✅ Tasks completed: {tasks_completed}\n"
+    message += f"📈 Average productivity score: {avg_score}/10\n\n"
+    message += f"📝 Summary:\n{summary[:300]}\n\n"
+    message += f"Great work this week! Keep it up! 🎉"
+
+    return await send_whatsapp_message(phone, message)
