@@ -257,11 +257,11 @@ export default function Dashboard() {
       <div style={styles.section}>
         <div style={styles.sectionHeader}>
           <h2 style={styles.sectionTitle}>Recent Journal Entries</h2>
-          {stats.journals.length > 0 && (
+          {/* {stats.journals.length > 0 && (
             <span style={styles.journalScoreSummary}>
               Avg Score: {avgScore}/10
             </span>
-          )}
+          )} */}
         </div>
         {stats.journals.length === 0 ? (
           <div style={styles.emptyState}>
@@ -277,10 +277,10 @@ export default function Dashboard() {
               <div key={journal.id || idx} style={styles.journalItem}>
                 <div style={styles.journalHeader}>
                   <span style={styles.journalDate}>{journal.entry_date}</span>
-                  <div style={styles.journalScore}>
+                  {/* <div style={styles.journalScore}>
                     <span style={styles.scoreValue}>{journal.productivity_score || 0}</span>
                     <span style={styles.scoreLabel}>/10</span>
-                  </div>
+                  </div> */}
                 </div>
                 <p style={styles.journalText}>
                   {journal.journal_text?.slice(0, 100) || "No content"}

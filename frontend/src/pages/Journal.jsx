@@ -142,12 +142,12 @@ export default function Journal() {
               <div style={styles.entryHeader}>
                 <span style={styles.entryDate}>{j.entry_date}</span>
                 <div style={styles.actionGroup}>
-                  <div style={{
+                  {/* <div style={{
                     ...styles.scoreCircle,
                     background: j.productivity_score >= 7 ? "#10b981" : j.productivity_score >= 4 ? "#8b5cf6" : "#ef4444"
                   }}>
                     Score: {j.productivity_score}/10
-                  </div>
+                  </div> */}
                   <button 
                     onClick={() => editingId === j.id ? setEditingId(null) : handleEdit(j)} 
                     style={styles.editBtn}

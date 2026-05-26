@@ -4,10 +4,12 @@ from app.database import get_db
 from app.routers.deps import get_current_user
 from app.models.user import User
 from app.models.task import Task, TaskStatus
+from app.models.weekly_plan import WeeklyPlan
 from app.models.journal import Journal
-from app.services.email_service import send_welcome_email, send_daily_reminder, send_weekly_summary_email, send_otp_email
+from app.services.email_service import send_welcome_email, send_daily_reminder, send_weekly_summary_email, send_otp_email, send_email
 from app.services.ai_coach import weekly_summary
 from app.core.config import settings
+from datetime import date, timedelta
 import logging
 
 logger = logging.getLogger(__name__)
@@ -177,7 +179,7 @@ async def test_whatsapp(current_user: User = Depends(get_current_user)):
 @router.get("/scheduler-status")
 def scheduler_status():
     """Check if scheduler is running"""
-    from app.services.scheduler import scheduler  # Fixed import path
+    from app.services.scheduler import scheduler
     jobs_info = []
     for job in scheduler.get_jobs():
         jobs_info.append({
@@ -217,4 +219,122 @@ async def test_weekly_summary_immediate(
     return {
         "message": "Weekly summary test queued",
         "user_email": current_user.email
+    }
+
+
+# ========== NEW CRON JOB ENDPOINTS (No Authentication Required) ==========
+
+@router.post("/cron/send-morning-reminders")
+async def cron_send_morning_reminders(background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    """
+    Cron job endpoint to send morning reminders to ALL active users.
+    No authentication required - for external cron job services.
+    """
+    logger.info("Cron job: Sending morning reminders to all users...")
+
+    try:
+        users = db.query(User).filter(User.is_active == True).all()
+        logger.info(f"Found {len(users)} active users")
+
+        for user in users:
+            try:
+                pending_tasks = db.query(Task).filter(
+                    Task.user_id == user.id,
+                    Task.status != TaskStatus.completed
+                ).limit(5).all()
+                task_titles = [t.title for t in pending_tasks]
+
+                # Send email reminder
+                background_tasks.add_task(
+                    send_daily_reminder,
+                    to_email=user.email,
+                    username=user.username,
+                    tasks=task_titles
+                )
+                logger.info(f"Queued morning reminder for {user.email}")
+
+            except Exception as e:
+                logger.error(f"Failed to queue reminder for {user.email}: {e}")
+
+        return {
+            "status": "success",
+            "message": f"Queued morning reminders for {len(users)} users",
+            "users_processed": len(users)
+        }
+
+    except Exception as e:
+        logger.error(f"Cron job failed: {e}")
+        return {"status": "error", "message": str(e)}
+
+
+@router.post("/cron/send-monday-reminders")
+async def cron_send_monday_reminders(background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    """
+    Cron job endpoint to send Monday reminders to users without weekly plans.
+    No authentication required - for external cron job services.
+    """
+    logger.info("Cron job: Sending Monday reminders to users without plans...")
+
+    try:
+        today = date.today()
+        week_start = today - timedelta(days=today.weekday())
+
+        users = db.query(User).filter(User.is_active == True).all()
+        logger.info(f"Found {len(users)} active users")
+
+        reminders_sent = 0
+
+        for user in users:
+            try:
+                existing_plan = db.query(WeeklyPlan).filter(
+                    WeeklyPlan.user_id == user.id,
+                    WeeklyPlan.week_start == week_start
+                ).first()
+
+                if not existing_plan:
+                    background_tasks.add_task(
+                        send_email,
+                        to_email=user.email,
+                        subject="Start your week strong - Create your weekly plan",
+                        body=f"""
+Hey {user.username}!
+
+A new week has started and you haven't created your weekly plan yet.
+
+Here's what to do:
+1. Log in to BeProductive
+2. Go to Weekly Planner and create your plan
+3. Add your tasks for the week
+4. Let the AI coach generate suggestions
+
+Don't let Monday slip away - plan it now!
+
+Your BeProductive AI Coach
+                        """
+                    )
+                    reminders_sent += 1
+                    logger.info(f"Queued Monday reminder for {user.email}")
+
+            except Exception as e:
+                logger.error(
+                    f"Failed to queue Monday reminder for {user.email}: {e}")
+
+        return {
+            "status": "success",
+            "message": f"Queued Monday reminders for {reminders_sent} users",
+            "users_processed": reminders_sent
+        }
+
+    except Exception as e:
+        logger.error(f"Monday cron job failed: {e}")
+        return {"status": "error", "message": str(e)}
+
+
+@router.get("/cron/health")
+async def cron_health_check():
+    """Simple health check endpoint for cron jobs to keep server awake"""
+    return {
+        "status": "healthy",
+        "timestamp": str(date.today()),
+        "service": "BeProductive Notifications"
     }

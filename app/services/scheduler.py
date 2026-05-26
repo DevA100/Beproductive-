@@ -220,10 +220,8 @@ Your BeProductive AI Coach
 def start_scheduler():
     """Start the scheduler with all jobs"""
     try:
-        # Clear existing jobs
         scheduler.remove_all_jobs()
 
-        # Add morning reminders at 7 AM daily
         scheduler.add_job(
             send_morning_reminders,
             CronTrigger(hour=7, minute=0),
@@ -232,7 +230,6 @@ def start_scheduler():
         )
         logger.info("Added morning reminders job at 7:00 AM")
 
-        # Add weekly archive and summary on Sunday at 9 PM
         scheduler.add_job(
             weekly_archive_and_summary,
             CronTrigger(day_of_week="sun", hour=21, minute=0),
@@ -241,7 +238,6 @@ def start_scheduler():
         )
         logger.info("Added weekly archive job on Sunday at 9:00 PM")
 
-        # Add Monday reminder at 8 AM
         scheduler.add_job(
             monday_new_plan_reminder,
             CronTrigger(day_of_week="mon", hour=8, minute=0),
